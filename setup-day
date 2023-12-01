@@ -42,6 +42,18 @@ fn part1() -> Result<()> {
     writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
     todo!()
 }
+
+#[test]
+fn example_input() {
+    assert_eq!(1, 1);
+}
+
+#[test]
+fn real_input() {
+    let input = std::fs::read_to_string("input/input.txt").unwrap();
+    assert_eq!(2, 2);
+}
+
 EOM
 
 # template
@@ -61,4 +73,15 @@ EOM
 #     // part1()?;
 #     // part2()?;
 #     Ok(())
+# }
+#
+# #[test]
+# fn example_input() {
+#     assert_eq!(1, 1);
+# }
+
+# #[test]
+# fn real_input() {
+#     let input = std::fs::read_to_string("input/input.txt").unwrap();
+#     assert_eq!(2, 2);
 # }
