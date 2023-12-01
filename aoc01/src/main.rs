@@ -26,23 +26,23 @@ fn match_digit_with_letters(chars: &[char]) -> Option<(u32, usize)> {
     match chars[0] {
         'o' => {
             if 3 <= l && chars[..3] == ['o', 'n', 'e'] {
-                return Some((1, 3));
+                return Some((1, 1));
             }
         }
         't' => {
             if 3 <= l && chars[..3] == ['t', 'w', 'o'] {
-                return Some((2, 3));
+                return Some((2, 2));
             }
             if 5 <= l && chars[..5] == ['t', 'h', 'r', 'e', 'e'] {
-                return Some((3, 5));
+                return Some((3, 3));
             }
         }
         'f' => {
             if 4 <= l && chars[..4] == ['f', 'o', 'u', 'r'] {
-                return Some((4, 4));
+                return Some((4, 1));
             }
             if 4 <= l && chars[..4] == ['f', 'i', 'v', 'e'] {
-                return Some((5, 4));
+                return Some((5, 3));
             }
         }
         's' => {
@@ -50,17 +50,17 @@ fn match_digit_with_letters(chars: &[char]) -> Option<(u32, usize)> {
                 return Some((6, 3));
             }
             if 5 <= l && chars[..5] == ['s', 'e', 'v', 'e', 'n'] {
-                return Some((7, 5));
+                return Some((7, 1));
             }
         }
         'e' => {
             if 5 <= l && chars[..5] == ['e', 'i', 'g', 'h', 't'] {
-                return Some((8, 5));
+                return Some((8, 4));
             }
         }
         'n' => {
             if 4 <= l && chars[..4] == ['n', 'i', 'n', 'e'] {
-                return Some((9, 4));
+                return Some((9, 2));
             }
         }
         c => {
@@ -72,7 +72,7 @@ fn match_digit_with_letters(chars: &[char]) -> Option<(u32, usize)> {
     None
 }
 
-fn part1(input: &str) -> Result<()> {
+fn part1(input: &str) -> Result<u32> {
     let start = Instant::now();
 
     let mut sum = 0;
@@ -90,10 +90,10 @@ fn part1(input: &str) -> Result<()> {
 
     writeln!(io::stdout(), "Part 1: {}", sum)?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
-    Ok(())
+    Ok(sum)
 }
 
-fn part2(input: &str) -> Result<()> {
+fn part2(input: &str) -> Result<u32> {
     let start = Instant::now();
 
     let mut sum = 0;
@@ -101,15 +101,16 @@ fn part2(input: &str) -> Result<()> {
         let mut first_digit = 0;
         let mut last_digit = 0;
         let chars: Vec<char> = line.chars().collect();
-        for i in 0..chars.len() {
-            match match_digit_with_letters(&chars[i..]) {
-                Some((digit, _)) => {
-                    if first_digit == 0 {
-                        first_digit = digit
-                    }
-                    last_digit = digit;
+        let mut i = 0;
+        while i <= chars.len() {
+            if let Some((digit, offset)) = match_digit_with_letters(&chars[i..]) {
+                if first_digit == 0 {
+                    first_digit = digit
                 }
-                _ => (),
+                last_digit = digit;
+                i += offset;
+            } else {
+                i += 1;
             }
         }
 
@@ -117,5 +118,31 @@ fn part2(input: &str) -> Result<()> {
     }
     writeln!(io::stdout(), "Part 2: {}", sum)?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
-    Ok(())
+    Ok(sum)
+}
+
+#[test]
+fn example_input() {
+    let input = "1abc2
+pqr3stu8vwx
+a1b2c3d4e5f
+treb7uchet";
+    assert_eq!(part1(input).unwrap(), 142);
+
+    let input = "two1nine
+eightwothree
+abcone2threexyz
+xtwone3four
+4nineeightseven2
+zoneight234
+7pqrstsixteen";
+    assert_eq!(part2(input).unwrap(), 281);
+}
+
+#[test]
+fn real_input() {
+    let input = std::fs::read_to_string("input/input.txt").unwrap();
+
+    assert_eq!(part1(&input).unwrap(), 54390);
+    assert_eq!(part2(&input).unwrap(), 54277);
 }
