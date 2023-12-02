@@ -57,6 +57,25 @@ impl FromStr for Game {
     }
 }
 
+impl Game {
+    fn power(&self) -> usize {
+        let mut red_min = 0;
+        let mut green_min = 0;
+        let mut blue_min = 0;
+
+        for set in &self.sets {
+            for c in set {
+                match c {
+                    Cube::Red(n) => red_min = red_min.max(*n),
+                    Cube::Green(n) => green_min = green_min.max(*n),
+                    Cube::Blue(n) => blue_min = blue_min.max(*n),
+                }
+            }
+        }
+        red_min * green_min * blue_min
+    }
+}
+
 fn parse_input(input: &str) -> Result<Vec<Game>> {
     input
         .lines()
@@ -72,7 +91,7 @@ fn part1(games: &[Game]) -> Result<usize> {
     let green_max = 13;
     let blue_max = 14;
 
-    let sum: usize = games
+    let sum = games
         .iter()
         .map(|g| {
             for set in &g.sets {
@@ -105,15 +124,24 @@ fn part1(games: &[Game]) -> Result<usize> {
     Ok(sum)
 }
 
+fn part2(games: &[Game]) -> Result<usize> {
+    let start = Instant::now();
+
+    let sum = games.iter().map(|g| g.power()).sum();
+
+    writeln!(io::stdout(), "Part 2: {}", sum)?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
+    Ok(sum)
+}
+
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
     let games = parse_input(&input)?;
-    dbg!(&games[0]);
 
     part1(&games)?;
-    // part2()?;
+    part2(&games)?;
     Ok(())
 }
 
@@ -127,6 +155,7 @@ Game 5: 6 red, 1 blue, 3 green; 2 blue, 1 red, 2 green";
     let games = parse_input(&input).unwrap();
 
     assert_eq!(part1(&games).unwrap(), 8);
+    assert_eq!(part2(&games).unwrap(), 2286);
 }
 
 #[test]
@@ -135,4 +164,5 @@ fn real_input() {
     let games = parse_input(&input).unwrap();
 
     assert_eq!(part1(&games).unwrap(), 1734);
+    assert_eq!(part2(&games).unwrap(), 70387);
 }
