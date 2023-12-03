@@ -69,25 +69,37 @@ fn is_coord_valid(c: &Coord, bound: &Coord) -> bool {
     c.0 >= 0 && c.1 >= 0 && c.0 < bound.0 && c.1 < bound.1
 }
 
-fn dfs(c: Coord, engine: &Engine, bound: &Coord, visited: &mut HashSet<Coord>) -> (bool, u32) {
+fn dfs(
+    c: Coord,
+    engine: &Engine,
+    bound: &Coord,
+    visited: &mut HashSet<Coord>,
+) -> (bool, Option<HashSet<Coord>>, u32) {
     if visited.insert(c) {
         if let Some(EnginePart::Number(n)) = engine.get(&c) {
-            let flag = adjacent(&c).iter().any(|next_c| {
-                if let Some(EnginePart::Symbol(_)) = engine.get(&next_c) {
-                    true
-                } else {
-                    false
+            let mut adjacent_gears = HashSet::new();
+            let mut flag = false;
+            for next_c in adjacent(&c) {
+                if let Some(EnginePart::Symbol(c)) = engine.get(&next_c) {
+                    if c == &'*' {
+                        adjacent_gears.insert(next_c);
+                    }
+                    flag = true;
                 }
-            });
+            }
             if is_coord_valid(&(c.0, c.1 - 1), bound) {
-                let (next_flag, next_sum) = dfs((c.0, c.1 - 1), engine, bound, visited);
-                return (flag | next_flag, n + 10 * next_sum);
+                let (next_flag, next_gears, next_sum) = dfs((c.0, c.1 - 1), engine, bound, visited);
+                let sum = n + 10 * next_sum;
+                if let Some(next_gears) = next_gears {
+                    adjacent_gears.extend(next_gears);
+                }
+                return (flag | next_flag, Some(adjacent_gears), sum);
             } else {
-                return (flag, *n);
+                return (flag, Some(adjacent_gears), *n);
             }
         }
     }
-    (false, 0)
+    (false, None, 0)
 }
 
 fn part1(bound: &Coord, engine: &Engine) -> Result<u32> {
@@ -99,15 +111,45 @@ fn part1(bound: &Coord, engine: &Engine) -> Result<u32> {
     for x in (0..bound.0).rev() {
         for y in (0..bound.1).rev() {
             if engine.contains_key(&(x, y)) && !visited.contains(&(x, y)) {
-                let (flag, row_sum) = dfs((x, y), engine, bound, &mut visited);
+                let (flag, _, whole_number) = dfs((x, y), engine, bound, &mut visited);
                 if flag {
-                    sum += row_sum;
+                    sum += whole_number;
                 }
             }
         }
     }
 
     writeln!(io::stdout(), "Part 1: {sum}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
+    Ok(sum)
+}
+
+fn part2(bound: &Coord, engine: &Engine) -> Result<u32> {
+    let start = Instant::now();
+
+    // bfs or dfs?
+    let mut visited: HashSet<Coord> = HashSet::new();
+    let mut gears = HashMap::new();
+    for x in (0..bound.0).rev() {
+        for y in (0..bound.1).rev() {
+            if engine.contains_key(&(x, y)) && !visited.contains(&(x, y)) {
+                let (_, next_gears, whole_number) = dfs((x, y), engine, bound, &mut visited);
+                if let Some(next_gears) = next_gears {
+                    for c in next_gears {
+                        gears.entry(c).or_insert(vec![]).push(whole_number);
+                    }
+                }
+            }
+        }
+    }
+
+    let sum = gears
+        .values()
+        .filter(|v| v.len() > 1)
+        .map(|v| v.iter().fold(1, |s, i| s * i))
+        .sum();
+
+    writeln!(io::stdout(), "Part 2: {sum}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
     Ok(sum)
 }
@@ -119,8 +161,7 @@ fn main() -> Result<()> {
     let (bound, engine) = parse_input(&input);
 
     part1(&bound, &engine)?;
-    // part1()?;
-    // part2()?;
+    part2(&bound, &engine)?;
     Ok(())
 }
 
@@ -140,6 +181,7 @@ fn example_input() {
 
     assert_eq!(engine.get(&(0, 0)).unwrap(), &EnginePart::Number(4));
     assert_eq!(part1(&bound, &engine).unwrap(), 4361);
+    assert_eq!(part2(&bound, &engine).unwrap(), 467835);
 }
 
 #[test]
@@ -148,4 +190,5 @@ fn real_input() {
     let (bound, engine) = parse_input(&input);
 
     assert_eq!(part1(&bound, &engine).unwrap(), 540131);
+    assert_eq!(part2(&bound, &engine).unwrap(), 86879020);
 }
