@@ -146,7 +146,7 @@ fn part2(bound: &Coord, engine: &Engine) -> Result<u32> {
     let sum = gears
         .values()
         .filter(|v| v.len() > 1)
-        .map(|v| v.iter().fold(1, |s, i| s * i))
+        .map(|v| v.iter().product::<u32>())
         .sum();
 
     writeln!(io::stdout(), "Part 2: {sum}")?;
