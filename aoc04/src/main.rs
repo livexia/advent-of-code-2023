@@ -16,12 +16,10 @@ fn parse_input(input: &str) -> Result<Vec<(Vec<usize>, Vec<usize>)>> {
         if let Some((_, nums)) = line.trim().split_once(':') {
             if let Some((win, have)) = nums.split_once('|') {
                 cards.push((
-                    win.trim()
-                        .split_whitespace()
+                    win.split_whitespace()
                         .map(|n| n.parse::<usize>().unwrap())
                         .collect(),
-                    have.trim()
-                        .split_whitespace()
+                    have.split_whitespace()
                         .map(|n| n.parse::<usize>().unwrap())
                         .collect(),
                 ));
@@ -62,6 +60,40 @@ fn part1(cards: &[(Vec<usize>, Vec<usize>)]) -> Result<usize> {
     Ok(result)
 }
 
+fn part2(cards: &[(Vec<usize>, Vec<usize>)]) -> Result<usize> {
+    let start = Instant::now();
+
+    let each_card_wins: Vec<_> = cards
+        .iter()
+        .map(|card| {
+            let mut count = 0;
+            for n1 in &card.0 {
+                for n2 in &card.1 {
+                    if n1 == n2 {
+                        count += 1;
+                    }
+                }
+            }
+            count
+        })
+        .collect();
+
+    let mut scratchcards = vec![1; cards.len()];
+    for i in 0..cards.len() {
+        for _times in 0..scratchcards[i] {
+            for j in 1..=each_card_wins[i] {
+                scratchcards[i + j] += 1;
+            }
+        }
+    }
+
+    let result = scratchcards.iter().sum();
+
+    writeln!(io::stdout(), "Part 2: {result}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
+    Ok(result)
+}
+
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
@@ -69,7 +101,7 @@ fn main() -> Result<()> {
     let cards = parse_input(&input)?;
 
     part1(&cards)?;
-    // part2()?;
+    part2(&cards)?;
     Ok(())
 }
 
@@ -86,6 +118,7 @@ Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11";
     assert_eq!(cards[0].0[0], 41);
 
     assert_eq!(part1(&cards).unwrap(), 13);
+    assert_eq!(part2(&cards).unwrap(), 30);
 }
 
 #[test]
@@ -93,5 +126,5 @@ fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let cards = parse_input(&input).unwrap();
     assert_eq!(part1(&cards).unwrap(), 24733);
-    assert_eq!(2, 2);
+    assert_eq!(part2(&cards).unwrap(), 5422730);
 }
