@@ -91,7 +91,7 @@ Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11";
 #[test]
 fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
-    let cards = parse_input(&input)?;
+    let cards = parse_input(&input).unwrap();
     assert_eq!(part1(&cards).unwrap(), 24733);
     assert_eq!(2, 2);
 }
