@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::time::Instant;
@@ -9,7 +10,9 @@ macro_rules! err {
 
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 
-fn parse_input(input: &str) -> Result<Vec<(Vec<usize>, Vec<usize>)>> {
+type Card = (HashSet<usize>, Vec<usize>);
+
+fn parse_input(input: &str) -> Result<Vec<Card>> {
     let mut cards = vec![];
 
     for line in input.lines().filter(|l| !l.trim().is_empty()) {
@@ -33,7 +36,7 @@ fn parse_input(input: &str) -> Result<Vec<(Vec<usize>, Vec<usize>)>> {
     Ok(cards)
 }
 
-fn part1(cards: &[(Vec<usize>, Vec<usize>)]) -> Result<usize> {
+fn part1(cards: &[Card]) -> Result<usize> {
     let start = Instant::now();
 
     let result = cards
@@ -41,10 +44,8 @@ fn part1(cards: &[(Vec<usize>, Vec<usize>)]) -> Result<usize> {
         .map(|card| {
             let mut count = 0;
             for n1 in &card.0 {
-                for n2 in &card.1 {
-                    if n1 == n2 {
-                        count += 1;
-                    }
+                if card.1.contains(n1) {
+                    count += 1;
                 }
             }
             if count == 0 {
@@ -60,7 +61,7 @@ fn part1(cards: &[(Vec<usize>, Vec<usize>)]) -> Result<usize> {
     Ok(result)
 }
 
-fn part2(cards: &[(Vec<usize>, Vec<usize>)]) -> Result<usize> {
+fn part2(cards: &[Card]) -> Result<usize> {
     let start = Instant::now();
 
     let each_card_wins: Vec<_> = cards
@@ -68,10 +69,8 @@ fn part2(cards: &[(Vec<usize>, Vec<usize>)]) -> Result<usize> {
         .map(|card| {
             let mut count = 0;
             for n1 in &card.0 {
-                for n2 in &card.1 {
-                    if n1 == n2 {
-                        count += 1;
-                    }
+                if card.1.contains(n1) {
+                    count += 1;
                 }
             }
             count
@@ -80,10 +79,8 @@ fn part2(cards: &[(Vec<usize>, Vec<usize>)]) -> Result<usize> {
 
     let mut scratchcards = vec![1; cards.len()];
     for i in 0..cards.len() {
-        for _times in 0..scratchcards[i] {
-            for j in 1..=each_card_wins[i] {
-                scratchcards[i + j] += 1;
-            }
+        for j in 1..=each_card_wins[i] {
+            scratchcards[i + j] += scratchcards[i];
         }
     }
 
@@ -115,7 +112,6 @@ Card 5: 87 83 26 28 32 | 88 30 70 12 93 22 82 36
 Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11";
 
     let cards = parse_input(input).unwrap();
-    assert_eq!(cards[0].0[0], 41);
 
     assert_eq!(part1(&cards).unwrap(), 13);
     assert_eq!(part2(&cards).unwrap(), 30);
