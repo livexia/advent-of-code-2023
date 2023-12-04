@@ -29,3 +29,31 @@ Advent of Code 2023
 7. 总结：深度优先搜索是从一个数字开始，在一行中向左继续搜索，搜索过程中取得一个完整的数字，并确认整个数字是否存在部分与符号邻接。
 8. 第一部分的方法即是如此，第二部分则稍有不同，但整体思路是一致的，在深度优先搜索中，要判断数字的组成部分是否与齿轮符号邻接，并保留数字每个组成部分对应的齿轮符号坐标（一个齿轮可能与多个数字邻接，同时一个数字也可能与多个符号邻接）。
 9. 在每一次深度优先搜索后，就得到了数字与邻接齿轮的对应关系，在这个基础上再对问题进行解答即可。
+
+## Day 4
+
+这个问题的输入并不复杂，每一行输入包含了两个数组，第一部分要求计算第二个数组中的数字在第一个数组中出现的次数，直接暴力匹配实现即可。第二部分需要在这个基础上再进一步的计算，在此以示例输入为例进行阐述：
+
+- 依旧是对输入进行暴力匹配，计算每一行输入中第二个数组中的数字在第一个数组中出现的次数，对于示例输入可得 `[4, 2, 2, 1, 0, 0]`
+- 当前所有的 Card 数量均为 `[1, 1, 1, 1, 1, 1]`
+- 根据题意，因为 Card 1 中重复的数字有 4 个，则会获得 Card 2、3、4、5 各一张
+- 此时各 Card 数量为 `[1, 2, 2, 2, 2, 1]`
+- 因为 Card 2 有两张，同时 Card 2 中重复的数字有 2 个，则会 Card 3、4 各两张
+- 此时各 Card 数量为 `[1, 2, 2 + 2, 2 + 2, 2, 1]`
+- 依次类推
+- 刮完所有的 Card 3后，Card 数量为 `[1, 2, 2 + 2, 2 + 2 + 4, 2 + 4, 1]`
+- 刮完所有的 Card 4后，Card 数量为 `[1, 2, 2 + 2, 2 + 2 + 4, 2 + 4 + 8, 1]`
+- 最后的 Crad 总数即为 `1 + 2 + 4 + 8 + 14 + 1 = 30`
+
+****************************************性能优化？****************************************
+
+- 避免暴力匹配，选用更好的匹配算法，计算两个数组的重叠元素个数。**实际上在这个问题中，需要匹配的两个数组大小都较小，暴力匹配并不会影响性能。**
+    - https://afteracademy.com/blog/find-the-intersection-of-two-unsorted-arrays/
+    - 对其中一个数组进行排序，在二分查找另一个数组的元素
+    - 对两个数组都进行排序，双指针进行对比 [https://afteracademy.com/blog/find-the-intersection-of-two-unsorted-arrays/#:~:text=Return answer list.-,Solution Visualization,-Pseudo-Code](https://afteracademy.com/blog/find-the-intersection-of-two-unsorted-arrays/#:~:text=Return%20answer%20list.-,Solution%20Visualization,-Pseudo%2DCode)
+    - 存储其中一个数组为 HashSet ，在对另一个数组进行 HashSet 查找
+
+******************Rust Tips******************
+
+- You can use `split_whitespace()` to avoid the `.filter(|n| !n.is_empty())`. Good job!
+    - https://old.reddit.com/r/adventofcode/comments/18actmy/2023_day_4_solutions/kbx5j4v/
