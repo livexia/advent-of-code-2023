@@ -100,32 +100,6 @@ fn part1(almanac: &Almanac) -> Result<Number> {
     Ok(result)
 }
 
-fn convert_range(
-    input: Range,
-    dest: Number,
-    src: Number,
-    length: Number,
-) -> (Vec<Range>, Option<Range>) {
-    // src range: src..src+length
-    // src and dest offset is: dest - src
-    // then: dest = src + offset
-    let offset = dest - src;
-
-    let src_end = src + length;
-    let (start, end) = input;
-    if end <= src || src_end <= start {
-        return (vec![input], None);
-    } else {
-        let overlaps = Some((start.max(src) + offset, end.min(src_end) + offset));
-        // Number::MIN..src, src_end..Number::MAX
-        let remain_range: Vec<Range> = [(start, end.min(src)), (start.max(src_end), end)]
-            .into_iter()
-            .filter(|(a, b)| a < b)
-            .collect();
-        (remain_range, overlaps)
-    }
-}
-
 // this funtion only works when a.0 <= b.0
 fn merge_range(a: Range, b: Range) -> (Option<Range>, Range) {
     let (a_start, a_end) = a;
@@ -157,6 +131,33 @@ fn merge_ranges(mut ranges: Vec<Range>) -> Vec<Range> {
     merged_ranges.push(remain);
 
     merged_ranges
+}
+
+fn convert_range(
+    input: Range,
+    dest: Number,
+    src: Number,
+    length: Number,
+) -> (Vec<Range>, Option<Range>) {
+    // src range: src..src+length
+    // src and dest offset is: dest - src
+    // then: dest = src + offset
+    let offset = dest - src;
+
+    let src_end = src + length;
+    let (start, end) = input;
+    if end <= src || src_end <= start {
+        (vec![input], None)
+    } else {
+        let overlaps = Some((start.max(src) + offset, end.min(src_end) + offset));
+        // input range overlaps with range Number::MIN..src and range src_end..Number::MAX
+        // is the remain range of input
+        let remain_range: Vec<Range> = [(start, end.min(src)), (start.max(src_end), end)]
+            .into_iter()
+            .filter(|(a, b)| a < b)
+            .collect();
+        (remain_range, overlaps)
+    }
 }
 
 fn convert_range_with_maps(range: Range, maps: &[SingleMap], converted: &mut Vec<Range>) {
