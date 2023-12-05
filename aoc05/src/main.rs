@@ -98,6 +98,37 @@ fn part1(almanac: &Almanac) -> Result<Number> {
     Ok(result)
 }
 
+fn part2(almanac: &Almanac) -> Result<Number> {
+    let start = Instant::now();
+
+    let result = almanac
+        .seeds
+        .chunks(2)
+        .map(|seed_range| {
+            (seed_range[0]..seed_range[0] + seed_range[1])
+                .map(|seed| {
+                    let mut start = seed;
+                    for maps in &almanac.maps {
+                        if let Some(next) = maps
+                            .iter()
+                            .find_map(|&(dest, src, length)| convert(start, dest, src, length))
+                        {
+                            start = next
+                        }
+                    }
+                    start
+                })
+                .min()
+                .unwrap()
+        })
+        .min()
+        .unwrap();
+
+    writeln!(io::stdout(), "Part 2: {result}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
+    Ok(result)
+}
+
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
@@ -105,7 +136,7 @@ fn main() -> Result<()> {
     let almanac = parse_input(&input);
 
     part1(&almanac)?;
-    // part2()?;
+    part2(&almanac)?;
     Ok(())
 }
 
@@ -149,6 +180,7 @@ humidity-to-location map:
 56 93 4";
     let almanac = parse_input(input);
     assert_eq!(part1(&almanac).unwrap(), 35);
+    assert_eq!(part2(&almanac).unwrap(), 46);
 }
 
 #[test]
@@ -156,4 +188,5 @@ fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let almanac = parse_input(&input);
     assert_eq!(part1(&almanac).unwrap(), 424490994);
+    assert_eq!(part2(&almanac).unwrap(), 424490994);
 }
