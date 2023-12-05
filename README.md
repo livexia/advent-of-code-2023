@@ -6,6 +6,7 @@
 ## Rust Hints
 
 - https://github.com/dtolnay/anyhow This library provides `[anyhow::Error](https://docs.rs/anyhow/1.0/anyhow/struct.Error.html)`, a trait object based error type for easy idiomatic error handling in Rust applications.
+- `flat_map(|n| n.parse())` 会忽略 `Err` 保留 `Ok` 中的结果。
 
 ## Day 1
 
