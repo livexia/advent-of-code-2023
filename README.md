@@ -57,3 +57,112 @@ Advent of Code 2023
 
 - You can use `split_whitespace()` to avoid the `.filter(|n| !n.is_empty())`. Good job!
     - https://old.reddit.com/r/adventofcode/comments/18actmy/2023_day_4_solutions/kbx5j4v/
+
+## Day 5
+
+输入稍显麻烦，并不是特别的困难，对每行进行循环处理即可。问题中的 Map 其实就是对应关系，每一条 Map 由三个部分组成分别是 `dest` `src` 和 `length` ，可以将 Map 表示为函数，对于范围在 `[src, src+length)` 的输入数字 `input` ，可以通过如下计算得到转化后的 `result = dest - src + input` ，第一部分就是对输入的 `seed` 不断的进行计算最后得到 `location` ，选取其中最小值即可。
+
+第二部分在第一部分的基础上进行扩展，每两个输入的 `seeds` 表示 `seed` 的区间，同样需要计算所有区间内 `seed` 经过转化最后得到的 `loaction` 中的最小值。首先尝试直接对区间内的每一个 `seed` 进行暴力求解，但是因为的实际输入范围较大，运行时间较慢，所以很快的放弃，在完成后阅读 Reddit 社区的解答后发现，实际上暴力求解虽然慢，但是并不是需要几天的那种，如果让它跑完，也许在十分钟内也能取得结果。
+
+既然不选择使用暴力，实际上这个问题就是涉及区间的问题，如果能够对整个输入的 `seed` 区间，进行转换，那就减少了大量的计算，对一个输入 `input` 区间作用某一 `Map` 转换逻辑如下：
+
+1. 将 `Map` 转为区间转换的表示方式：`[src, src + length)` ，同时 `offset = dest - src` ，那么就有 `[src, src + length) -> [src + offset, src + length + offset)`
+2. 设输入区间 `input` 为 `[start, end)`
+3. 那么只需要计算 `[start, end)` 和 `[src, src + length)` 的重叠区间 `overlaps` ，再加上 `offset` 即可得到输入区间 `input` 经过 `Map` 转换后的部分区间
+4. 根据题意，如果一个 `seed`  无法被同一阶段的任意 `Map` 进行转换对应，那么就直接进行转换 （`10 → 10`）
+5. 所以仅仅得到 `input` 和某一个 `Map` 的重叠区间仍旧不够，仍旧需要判断除重叠区间外的 `input` 区间是否能够被同一阶段的其他 `Map` 进行转换，也就是需要依次对剩余的 `input` 区间和剩余的同一阶段的 `Map` 进行转换，当所有同一阶段的 `Map` 都完成了转换后，如果 `input` 区间还剩下，那么依旧需要将剩下的区间保留到下一阶段，具体代码如下：
+    
+    ```rust
+    fn convert_range(
+        input: Range,
+        dest: Number,
+        src: Number,
+        length: Number,
+    ) -> (Vec<Range>, Option<Range>) {
+        // src range: src..src+length
+        // src and dest offset is: dest - src
+        // then: dest = src + offset
+        let offset = dest - src;
+    
+        let src_end = src + length;
+        let (start, end) = input;
+        if end <= src || src_end <= start {
+            return (vec![input], None);
+        } else {
+            let overlaps = Some((start.max(src) + offset, end.min(src_end) + offset));
+            // input range overlaps with range Number::MIN..src and range src_end..Number::MAX
+            // is the remain range of input
+            let remain_range: Vec<Range> = [(start, end.min(src)), (start.max(src_end), end)]
+                .into_iter()
+                .filter(|(a, b)| a < b)
+                .collect();
+            (remain_range, overlaps)
+        }
+    }
+    
+    fn convert_range_with_maps(range: Range, maps: &[SingleMap], converted: &mut Vec<Range>) {
+        if maps.is_empty() {
+            converted.push(range);
+            return;
+        }
+        let (dest, src, length) = maps[0];
+        let (r_ranges, overlaps) = convert_range(range, dest, src, length);
+        if let Some(overlaps) = overlaps {
+            converted.push(overlaps);
+        }
+        for r in r_ranges {
+            convert_range_with_maps(r, &maps[1..], converted);
+        }
+    }
+    ```
+    
+6. 根据输入，对每个阶段都进行同一阶段的 Maps 转化和对应，不断得到新的输入区间，直到完成所有的转换对应阶段，对最后得到的所有区间的起点取最小值即是第二部分的解
+
+****************性能优化****************
+
+- 采用 interval 区间重叠的方法可以视作是对暴力计算的一种性能优化
+- 也可以在暴力计算的过程中改变每次循环的间隔进行逼近求解，当然这不是一种特别系统的方法
+- 在利用 interval 求解的过程中依旧存在可能的性能优化，那就是对于每一个阶段输出的区间列表进行合并，减少下一个阶段的输入，涉及到区间合并的算法。
+    - 首先按照区间起点对区间列表进行排序
+    - 考虑两个**有序区间**合并的算法，即 `merge_range`，设区间：`[a_start, a_end)` 和 `[b_start, b_end)` 且 `a_start < b_start`
+        - 如果 `a_end < b_start` 那么两个区间不存在重叠，区间 `a` 和 `b` 不需要合并
+        - 反之，两个区间存在重叠，那么合并后的区间就是 `(a_start, a_end.max(b_end))`
+    - 对于有序区间列表的合并只需要在这个基础上进行扩展即可，见 `merge_ranges`。
+    - 首先对第一个和第二个区间进行合并，如果不存在重叠，那么第一个区间已完成了所有的合并，第二个区间再对第三个区间进行合并。
+    - 反之如果存在重叠，那么合并后的区间，再对第三个区间进行合并。
+    - 以此类推就可以对有序区间列表完成合并，具体代码如下：
+    
+    ```rust
+    // this funtion only works when a.0 <= b.0
+    fn merge_range(a: Range, b: Range) -> (Option<Range>, Range) {
+        let (a_start, a_end) = a;
+        let (b_start, b_end) = b;
+        if a_end < b_start {
+            (Some(a), b)
+        } else {
+            (None, (a_start, a_end.max(b_end)))
+        }
+    }
+    
+    fn merge_ranges(mut ranges: Vec<Range>) -> Vec<Range> {
+        if ranges.len() < 2 {
+            return ranges;
+        }
+        ranges.sort();
+        let mut merged_ranges = vec![];
+        let mut next = 1;
+        let mut remain = ranges[0];
+    
+        while next < ranges.len() {
+            let (merged, remain_temp) = merge_range(remain, ranges[next]);
+            if let Some(merged) = merged {
+                merged_ranges.push(merged);
+            }
+            next += 1;
+            remain = remain_temp;
+        }
+        merged_ranges.push(remain);
+    
+        merged_ranges
+    }
+    ```
