@@ -3,6 +3,10 @@
 - https://adventofcode.com/
 - https://github.com/livexia/advent-of-code-2023
 
+## Rust Hints
+
+- https://github.com/dtolnay/anyhow This library provides `[anyhow::Error](https://docs.rs/anyhow/1.0/anyhow/struct.Error.html)`, a trait object based error type for easy idiomatic error handling in Rust applications.
+
 ## Day 1
 
 Part 2 一些特别的思路
