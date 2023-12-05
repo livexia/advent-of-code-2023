@@ -122,10 +122,6 @@ fn convert_range(
             .into_iter()
             .filter(|(a, b)| a < b)
             .collect();
-        println!(
-            "input: {:?}\nover: {:?}\nremain: {:?}",
-            input, overlaps, remain_range
-        );
         (remain_range, overlaps)
     }
 }
@@ -144,6 +140,7 @@ fn merge_range(a: Range, b: Range) -> (Range, Option<Range>) {
 fn convert_range_with_maps(range: Range, maps: &[SingleMap], converted: &mut Vec<Range>) {
     if maps.is_empty() {
         converted.push(range);
+        return;
     }
     let (dest, src, length) = maps[0];
     let (r_ranges, overlaps) = convert_range(range, dest, src, length);
@@ -167,22 +164,7 @@ fn part2(almanac: &Almanac) -> Result<Number> {
     for maps in &almanac.maps {
         let mut next_ranges = vec![];
         for &range in &ranges {
-            let mut remain_ranges = vec![];
-            let mut flag = false;
-            for map in maps {
-                let &(dest, src, length) = map;
-                let (r_ranges, overlaps) = convert_range(range, dest, src, length);
-                if let Some(overlaps) = overlaps {
-                    next_ranges.push(overlaps);
-                    remain_ranges.extend_from_slice(&r_ranges);
-                    flag = true;
-                };
-            }
-            if !flag {
-                next_ranges.push(range);
-                assert_eq!(remain_ranges.is_empty(), true);
-            }
-            next_ranges.extend_from_slice(&remain_ranges);
+            convert_range_with_maps(range, maps, &mut next_ranges);
         }
         next_ranges.sort();
 
@@ -255,5 +237,5 @@ fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let almanac = parse_input(&input);
     assert_eq!(part1(&almanac).unwrap(), 424490994);
-    assert_eq!(part2(&almanac).unwrap(), 424490994);
+    assert_eq!(part2(&almanac).unwrap(), 15290096);
 }
