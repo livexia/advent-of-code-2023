@@ -127,14 +127,36 @@ fn convert_range(
 }
 
 // this funtion only works when a.0 <= b.0
-fn merge_range(a: Range, b: Range) -> (Range, Option<Range>) {
-    let a_end = a.1;
-    let b_start = b.0;
-    if a_end >= b_start {
-        ((a.0, b.1), None)
+fn merge_range(a: Range, b: Range) -> (Option<Range>, Range) {
+    let (a_start, a_end) = a;
+    let (b_start, b_end) = b;
+    if a_end < b_start {
+        (Some(a), b)
     } else {
-        (a, Some(b))
+        (None, (a_start, a_end.max(b_end)))
     }
+}
+
+fn merge_ranges(mut ranges: Vec<Range>) -> Vec<Range> {
+    if ranges.len() < 2 {
+        return ranges;
+    }
+    ranges.sort();
+    let mut merged_ranges = vec![];
+    let mut next = 1;
+    let mut remain = ranges[0];
+
+    while next < ranges.len() {
+        let (merged, remain_temp) = merge_range(remain, ranges[next]);
+        if let Some(merged) = merged {
+            merged_ranges.push(merged);
+        }
+        next += 1;
+        remain = remain_temp;
+    }
+    merged_ranges.push(remain);
+
+    merged_ranges
 }
 
 fn convert_range_with_maps(range: Range, maps: &[SingleMap], converted: &mut Vec<Range>) {
@@ -160,15 +182,14 @@ fn part2(almanac: &Almanac) -> Result<Number> {
         .chunks(2)
         .map(|chunks| (chunks[0], chunks[0] + chunks[1]))
         .collect();
-    ranges.sort();
     for maps in &almanac.maps {
         let mut next_ranges = vec![];
         for &range in &ranges {
             convert_range_with_maps(range, maps, &mut next_ranges);
         }
-        next_ranges.sort();
+        ranges = merge_ranges(next_ranges);
 
-        std::mem::swap(&mut ranges, &mut next_ranges);
+        // std::mem::swap(&mut ranges, &mut next_ranges);
     }
 
     let result = ranges.into_iter().map(|(s, _)| s).min().unwrap();
