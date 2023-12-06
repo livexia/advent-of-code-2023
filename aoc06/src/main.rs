@@ -62,9 +62,10 @@ fn part2(time: &[usize], distance: &[usize]) -> Result<usize> {
         .parse::<usize>()
         .unwrap();
 
-    let result = (1..time)
-        .filter(|t| get_distance(time, *t) > distance)
-        .count();
+    let first_win_at = (1..time)
+        .find(|t| get_distance(time, *t) > distance)
+        .unwrap();
+    let result = time - 2 * first_win_at + 1;
 
     writeln!(io::stdout(), "Part 2: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
@@ -100,4 +101,5 @@ fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let (time, distance) = parse_input(&input);
     assert_eq!(part1(&time, &distance).unwrap(), 211904);
+    assert_eq!(part2(&time, &distance).unwrap(), 43364472);
 }
