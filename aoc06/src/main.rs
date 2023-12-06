@@ -33,6 +33,18 @@ fn get_distance(time: usize, pressed_time: usize) -> usize {
     time.saturating_sub(pressed_time) * pressed_time
 }
 
+fn calc_pressed_time_equal_distance(t: usize, d: usize) -> (f64, f64) {
+    // (t - p) * p = d
+    // p^2 - tp + d = 0
+    // p = (t + sqrt(t^2 -4d)) / 2
+    // p = (t - sqrt(t^2 -4d)) / 2
+    let (t, d) = (t as f64, d as f64);
+    (
+        (t - (t * t - 4.0 * d).sqrt()) / 2.0,
+        (t + (t * t - 4.0 * d).sqrt()) / 2.0,
+    )
+}
+
 fn part1(time: &[usize], distance: &[usize]) -> Result<usize> {
     let start = Instant::now();
 
@@ -62,10 +74,14 @@ fn part2(time: &[usize], distance: &[usize]) -> Result<usize> {
         .parse::<usize>()
         .unwrap();
 
-    let first_win_at = (1..time)
-        .find(|t| get_distance(time, *t) > distance)
-        .unwrap();
-    let result = time - 2 * first_win_at + 1;
+    // brute force solving quadratic equation of one variable
+    // let first_win_at = (1..time)
+    //     .find(|t| get_distance(time, *t) > distance)
+    //     .unwrap();
+
+    let (left, right) = calc_pressed_time_equal_distance(time, distance);
+
+    let result = (right.floor() - left.ceil()) as usize + 1;
 
     writeln!(io::stdout(), "Part 2: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
