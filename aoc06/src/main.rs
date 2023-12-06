@@ -29,20 +29,31 @@ fn parse_input(input: &str) -> (Vec<usize>, Vec<usize>) {
     (time, distance)
 }
 
+#[allow(dead_code)]
 fn get_distance(time: usize, pressed_time: usize) -> usize {
     time.saturating_sub(pressed_time) * pressed_time
 }
 
-fn calc_pressed_time_equal_distance(t: usize, d: usize) -> (f64, f64) {
+fn calc_distance_when_equal(t: usize, d: usize) -> usize {
     // (t - p) * p = d
     // p^2 - tp + d = 0
     // p = (t + sqrt(t^2 -4d)) / 2
     // p = (t - sqrt(t^2 -4d)) / 2
     let (t, d) = (t as f64, d as f64);
-    (
-        (t - (t * t - 4.0 * d).sqrt()) / 2.0,
-        (t + (t * t - 4.0 * d).sqrt()) / 2.0,
-    )
+    let x1 = (t - (t * t - 4.0 * d).sqrt()) / 2.0;
+    let x2 = (t + (t * t - 4.0 * d).sqrt()) / 2.0;
+    // let start = if x1.ceil() == x1 {
+    //     (x1 + 1.0) as usize
+    // } else {
+    //     x1.ceil() as usize
+    // };
+    // let end = if x2.floor() == x2 {
+    //     (x2 - 1.0) as usize
+    // } else {
+    //     x2.floor() as usize
+    // };
+    // end - start + 1
+    (x2.ceil() - 1.0 - x1.floor() - 1.0) as usize + 1
 }
 
 fn part1(time: &[usize], distance: &[usize]) -> Result<usize> {
@@ -51,7 +62,7 @@ fn part1(time: &[usize], distance: &[usize]) -> Result<usize> {
     let result = time
         .iter()
         .zip(distance.iter())
-        .map(|(t, d)| (1..*t).filter(|&i| get_distance(*t, i) > *d).count())
+        .map(|(t, d)| calc_distance_when_equal(*t, *d))
         .product();
 
     writeln!(io::stdout(), "Part 1: {result}")?;
@@ -74,14 +85,7 @@ fn part2(time: &[usize], distance: &[usize]) -> Result<usize> {
         .parse::<usize>()
         .unwrap();
 
-    // brute force solving quadratic equation of one variable
-    // let first_win_at = (1..time)
-    //     .find(|t| get_distance(time, *t) > distance)
-    //     .unwrap();
-
-    let (left, right) = calc_pressed_time_equal_distance(time, distance);
-
-    let result = (right.floor() - left.ceil()) as usize + 1;
+    let result = calc_distance_when_equal(time, distance);
 
     writeln!(io::stdout(), "Part 2: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
