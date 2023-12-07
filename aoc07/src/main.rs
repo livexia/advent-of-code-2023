@@ -2,7 +2,6 @@ use std::cmp::Ordering::*;
 use std::collections::HashMap;
 use std::error::Error;
 use std::io::{self, Read, Write};
-use std::str::FromStr;
 use std::time::Instant;
 
 #[allow(unused_macros)]
@@ -35,6 +34,39 @@ impl HandKind {
             HandKind::High => 0,
         }
     }
+
+    fn new(mut count: HashMap<i8, usize>, joker_rule: bool) -> Result<Self> {
+        let mut values: Vec<_> = if joker_rule {
+            if let Some(j_count) = count.remove(&-1) {
+                let mut values: Vec<_> = count.clone().into_values().collect();
+                values.sort();
+                if j_count != 5 {
+                    let max_value = values.last_mut().unwrap();
+                    let new_value = *max_value + j_count;
+                    *max_value = new_value;
+                    values
+                } else {
+                    vec![5]
+                }
+            } else {
+                count.into_values().collect()
+            }
+        } else {
+            count.into_values().collect()
+        };
+        values.sort();
+        let count_number = values.iter().fold(0, |sum, i| sum * 10 + *i);
+        Ok(match count_number {
+            5 => HandKind::Five,
+            14 => HandKind::Four,
+            23 => HandKind::Full,
+            113 => HandKind::Three,
+            122 => HandKind::Two,
+            1112 => HandKind::One,
+            11111 => HandKind::High,
+            _ => return err!("Wrong hand: {:?}", values),
+        })
+    }
 }
 
 impl PartialOrd for HandKind {
@@ -51,22 +83,19 @@ impl Ord for HandKind {
 #[derive(Debug, Clone)]
 struct Hand {
     kind: HandKind,
-    raw: [u8; 5],
+    raw: [i8; 5],
     bid: usize,
 }
 
-impl FromStr for Hand {
-    type Err = Box<dyn Error>;
-
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let mut raw: [u8; 5] = [0; 5];
+impl Hand {
+    fn from_str(s: &str, joker_rule: bool) -> Result<Self> {
         if let Some((hand_str, bid_str)) = s.split_once(' ') {
+            let mut raw: [i8; 5] = [0; 5];
             if hand_str.len() != 5 {
                 return err!("Wrong hand length: {:?}", hand_str);
             }
             let mut count = HashMap::new();
             for (i, c) in hand_str.chars().enumerate() {
-                *count.entry(c).or_insert(0) += 1;
                 raw[i] = match c {
                     '2' => 0,
                     '3' => 1,
@@ -77,26 +106,21 @@ impl FromStr for Hand {
                     '8' => 6,
                     '9' => 7,
                     'T' => 8,
-                    'J' => 9,
+                    'J' => {
+                        if joker_rule {
+                            -1
+                        } else {
+                            9
+                        }
+                    }
                     'Q' => 10,
                     'K' => 11,
                     'A' => 12,
                     _ => return err!("Wrong hand char: {:?}", c),
                 };
+                *count.entry(raw[i]).or_insert(0) += 1;
             }
-            let mut values: Vec<_> = count.values().collect();
-            values.sort();
-            let count_number = values.iter().fold(0, |sum, i| sum * 10 + *i);
-            let kind = match count_number {
-                5 => HandKind::Five,
-                14 => HandKind::Four,
-                23 => HandKind::Full,
-                113 => HandKind::Three,
-                122 => HandKind::Two,
-                1112 => HandKind::One,
-                11111 => HandKind::High,
-                _ => return err!("Wrong hand: {:?}", hand_str),
-            };
+            let kind = HandKind::new(count, joker_rule)?;
             let bid = bid_str.parse()?;
             return Ok(Self { kind, raw, bid });
         }
@@ -136,14 +160,17 @@ impl Ord for Hand {
     }
 }
 
-fn parse_input(input: &str) -> Vec<Hand> {
-    input.lines().map(|l| l.trim().parse().unwrap()).collect()
+fn parse_input(input: &str, joker_rule: bool) -> Vec<Hand> {
+    input
+        .lines()
+        .map(|l| Hand::from_str(l.trim(), joker_rule).unwrap())
+        .collect()
 }
 
-fn part1(hands: &[Hand]) -> Result<usize> {
+fn part1(input: &str) -> Result<usize> {
     let start = Instant::now();
 
-    let mut hands = hands.to_vec();
+    let mut hands = parse_input(input, false);
 
     hands.sort();
 
@@ -154,14 +181,26 @@ fn part1(hands: &[Hand]) -> Result<usize> {
     Ok(result)
 }
 
+fn part2(input: &str) -> Result<usize> {
+    let start = Instant::now();
+
+    let mut hands = parse_input(input, true);
+
+    hands.sort();
+
+    let result = hands.iter().enumerate().map(|(i, h)| (i + 1) * h.bid).sum();
+
+    writeln!(io::stdout(), "Part 2: {result}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
+    Ok(result)
+}
+
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
-    let hands = parse_input(&input);
-    dbg!(hands.len());
-    part1(&hands)?;
-    // part2()?;
+    part1(&input)?;
+    part2(&input)?;
     Ok(())
 }
 
@@ -173,14 +212,13 @@ KK677 28
 KTJJT 220
 QQQJA 483";
 
-    let hands = parse_input(input);
-    assert_eq!(hands[0].bid, 765);
-    assert_eq!(part1(&hands).unwrap(), 6440);
+    assert_eq!(part1(&input).unwrap(), 6440);
+    assert_eq!(part2(&input).unwrap(), 5905);
 }
 
 #[test]
 fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
-    let hands = parse_input(&input);
-    assert_eq!(part1(&hands).unwrap(), 248559379);
+    assert_eq!(part1(&input).unwrap(), 248559379);
+    assert_eq!(part2(&input).unwrap(), 249631254);
 }
