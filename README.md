@@ -247,7 +247,7 @@ Advent of Code 2023
         let j_count = count.remove(&-1).unwrap_or(0);
         let mut values: Vec<_> = count.into_values().collect();
         values.sort();
-        let count_number = values.iter().fold(0, |sum, i| sum * 10 + *i);
+        let count_number = values.iter().fold(0, |sum, i| sum * 10 + *i) + j_count;
         Ok(match count_number {
             5 => HandKind::Five,
             14 => HandKind::Four,
