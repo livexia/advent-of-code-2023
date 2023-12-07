@@ -240,3 +240,23 @@ Advent of Code 2023
         - `122` `1112` 和 `11111` 都是同样的
 - 依旧可以在处理输入时就对引入小丑规则的 `Hand` 和 `HandKind` 进行处理
 - 花了大量的时间在输入处理上，第一部分因为细节上有错误，找了半天，第二部分则是因为一个可恶的生命周期问题，花费了太多时间，最后只好用不那么优雅的方法实现
+- 部分代码如下：
+    
+    ```rust
+    fn new(mut count: HashMap<i8, usize>) -> Result<Self> {
+        let j_count = count.remove(&-1).unwrap_or(0);
+        let mut values: Vec<_> = count.into_values().collect();
+        values.sort();
+        let count_number = values.iter().fold(0, |sum, i| sum * 10 + *i);
+        Ok(match count_number {
+            5 => HandKind::Five,
+            14 => HandKind::Four,
+            23 => HandKind::Full,
+            113 => HandKind::Three,
+            122 => HandKind::Two,
+            1112 => HandKind::One,
+            11111 => HandKind::High,
+            _ => return err!("Wrong hand: {:?}", values),
+        })
+    }
+    ```

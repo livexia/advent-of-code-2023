@@ -35,27 +35,11 @@ impl HandKind {
         }
     }
 
-    fn new(mut count: HashMap<i8, usize>, joker_rule: bool) -> Result<Self> {
-        let mut values: Vec<_> = if joker_rule {
-            if let Some(j_count) = count.remove(&-1) {
-                let mut values: Vec<_> = count.clone().into_values().collect();
-                values.sort();
-                if j_count != 5 {
-                    let max_value = values.last_mut().unwrap();
-                    let new_value = *max_value + j_count;
-                    *max_value = new_value;
-                    values
-                } else {
-                    vec![5]
-                }
-            } else {
-                count.into_values().collect()
-            }
-        } else {
-            count.into_values().collect()
-        };
+    fn new(mut count: HashMap<i8, usize>) -> Result<Self> {
+        let j_count = count.remove(&-1).unwrap_or(0);
+        let mut values: Vec<_> = count.into_values().collect();
         values.sort();
-        let count_number = values.iter().fold(0, |sum, i| sum * 10 + *i);
+        let count_number = values.iter().fold(0, |sum, i| sum * 10 + *i) + j_count;
         Ok(match count_number {
             5 => HandKind::Five,
             14 => HandKind::Four,
@@ -94,7 +78,7 @@ impl Hand {
             if hand_str.len() != 5 {
                 return err!("Wrong hand length: {:?}", hand_str);
             }
-            let mut count = HashMap::new();
+            let mut count = HashMap::with_capacity(5);
             for (i, c) in hand_str.chars().enumerate() {
                 raw[i] = match c {
                     '2' => 0,
@@ -120,7 +104,7 @@ impl Hand {
                 };
                 *count.entry(raw[i]).or_insert(0) += 1;
             }
-            let kind = HandKind::new(count, joker_rule)?;
+            let kind = HandKind::new(count)?;
             let bid = bid_str.parse()?;
             return Ok(Self { kind, raw, bid });
         }
