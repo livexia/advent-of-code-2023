@@ -111,13 +111,8 @@ fn get_steps(
         if end_ids.contains(&cur) {
             ends.push((cur, steps))
         }
-        cur = match (instrs[cur_instr], network.get(&cur)) {
-            ('R', Some((_, r))) => *r,
-            ('L', Some((l, _))) => *l,
-            _ => return err!("Unable to move from {cur}"),
-        };
+        (cur, cur_instr) = next_node((cur, cur_instr), instrs, network)?;
         steps += 1;
-        cur_instr = (cur_instr + 1) % instrs.len();
     }
     Ok(ends)
 }
