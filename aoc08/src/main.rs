@@ -10,7 +10,7 @@ macro_rules! err {
 
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 
-type Network = HashMap<usize, (usize, usize)>;
+type Network = Vec<(usize, usize)>;
 type NodeMap = HashMap<String, usize>;
 
 fn set_node_id(name: &str, map: &mut NodeMap, last_id: &mut usize) -> usize {
@@ -25,6 +25,7 @@ fn set_node_id(name: &str, map: &mut NodeMap, last_id: &mut usize) -> usize {
 
 fn parse_input(input: &str) -> Result<(Vec<char>, Network, NodeMap)> {
     let input = input.replace([')', '('], "");
+    let max_length = input.lines().count();
     let mut lines = input.lines().filter(|l| !l.trim().is_empty());
     // parse instructions as chars;
     let instrs: Vec<_> = if let Some(line) = lines.next() {
@@ -33,15 +34,15 @@ fn parse_input(input: &str) -> Result<(Vec<char>, Network, NodeMap)> {
         return err!("Unable to parse instructions");
     };
     let mut last_id = 0;
-    let mut map = HashMap::new();
-    let mut network = HashMap::new();
+    let mut map = NodeMap::new();
+    let mut network = vec![(0, 0); max_length];
     for line in lines {
         if let Some((node_name, node_next)) = line.split_once('=') {
             let id = set_node_id(node_name.trim(), &mut map, &mut last_id);
             if let Some((left, right)) = node_next.trim().split_once(',') {
                 let left_id = set_node_id(left.trim(), &mut map, &mut last_id);
                 let right_id = set_node_id(right.trim(), &mut map, &mut last_id);
-                network.insert(id, (left_id, right_id));
+                network[id] = (left_id, right_id);
             } else {
                 return err!("Unable to parse nodes left and right: {:?}", line);
             }
@@ -49,13 +50,14 @@ fn parse_input(input: &str) -> Result<(Vec<char>, Network, NodeMap)> {
             return err!("Unable to parse node: {:?}", line);
         }
     }
+    dbg!(network.len());
     Ok((instrs, network, map))
 }
 
 fn next_node(start: (usize, usize), instrs: &[char], network: &Network) -> Result<(usize, usize)> {
-    Ok(match (instrs[start.1], network.get(&start.0)) {
-        ('R', Some((_, r))) => (*r, (start.1 + 1) % instrs.len()),
-        ('L', Some((l, _))) => (*l, (start.1 + 1) % instrs.len()),
+    Ok(match (instrs[start.1], network[start.0]) {
+        ('R', (_, r)) => (r, (start.1 + 1) % instrs.len()),
+        ('L', (l, _)) => (l, (start.1 + 1) % instrs.len()),
         _ => return err!("Unable to move with {start:?}"),
     })
 }
@@ -103,16 +105,14 @@ fn get_steps(
     let mut cur_instr = 0;
 
     let mut ends = vec![];
-    let mut steps = 0;
 
     let limit = cycle_detect(start, instrs, network)?;
 
-    for _ in 0..limit {
+    for steps in 0..limit {
         if end_ids.contains(&cur) {
             ends.push((cur, steps))
         }
         (cur, cur_instr) = next_node((cur, cur_instr), instrs, network)?;
-        steps += 1;
     }
     Ok(ends)
 }
