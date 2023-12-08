@@ -109,8 +109,8 @@ fn get_steps(
     let limit = cycle_detect(start, instrs, network)?;
 
     for steps in 0..limit {
-        if end_ids.contains(&cur) {
-            ends.push((cur, steps))
+        if end_ids.binary_search(&cur).is_ok() {
+            ends.push((cur, steps));
         }
         (cur, cur_instr) = next_node((cur, cur_instr), instrs, network)?;
     }
@@ -193,11 +193,12 @@ fn part2(instrs: &[char], network: &Network, map: &NodeMap) -> Result<usize> {
         .filter(|(k, _)| k.ends_with('A'))
         .map(|(_, v)| *v)
         .collect();
-    let end_ids: Vec<_> = map
+    let mut end_ids: Vec<_> = map
         .iter()
         .filter(|(k, _)| k.ends_with('Z'))
         .map(|(_, v)| *v)
         .collect();
+    end_ids.sort();
     let mut start_to_end_steps = HashMap::new();
 
     for &start in &start_ids {
