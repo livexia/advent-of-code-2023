@@ -285,3 +285,36 @@ Advent of Code 2023
     - 环检测算法实际比 HashMap 的方法要进行更多遍历
     - 环检测算法节省了 HashMap 所需要的内存空间
 - 以 HashMap 存储节点的左右节点，这影响了后续对节点路径的搜索的性能。用 Vec 替代 HashMap 存储 NetWork 最后 Debug 的运行时间从 1xx ms → 20ms
+
+
+## Day 9
+
+题目很简单，输入并不复杂，按行解析为数组即可，第一部分直接按照题目要求进行解答即可。第一部分思路如下：
+
+- 迭代计算数组相邻两个元素差，将结果存入新的数组，直到新的数组全为 0
+    - 计算过程中保留每一个数组的最后一个元素到 `last` 数组
+- 当数组全为 `0` 时，反向计算上一层数组的最后一个元素，直到得到输入数组的最后一个元素
+    - 设所有每一层数组的预测最后一个元素的数组为 predict 那么有:
+        - `predict[0] - last[0] = predict[1]`
+        - `predict[1] - last[1] = predict[2]`
+        - 直到 `predict[n] - last[n] = predict[n + 1]`，且 `predict[n + 1] = 0`
+        - 将所有等式两边相加得到： `(predict[0] + predict[1] + … + predict[n]) -  (last[0] + last[1] + … + last[n]) =  (predict[1] + predict[2] + … + predict[n+1])`
+        - 化简可得 `predict[0] = Sum{ last } + predict[n + 1]`
+        - 所以 `predict[0] = Sum{ last }`
+    - **可以直接对 `last` 数组进行求和**
+
+第二部分要预测输入数组的第一个元素：
+
+- 迭代计算数组相邻两个元素差，将结果存入新的数组，直到新的数组全为 0
+    - 计算过程中保留每一个数组的第一个元素到 `first` 数组
+- 当数组全为 `0` 时，反向计算上一层的数组的第一个元素，直到得到输入数组的第一个元素
+    - 设所有每一层数组的预测第一个一个元素的数组为 predict 那么有:
+        - `first[0] - predict[0] = predict[1]`
+        - `first[1] - predict[1] = predict[2]`
+        - 直到 `first[n] - predict[n] = predict[n + 1]`，且 `predict[n + 1] = 0`
+        - 为了避免计算每一个 predict 值，可以每隔一个等式改变等式两边的符号，再对所有等式进行累加
+        - `(first[0] - predict[0]) + (first[1] - predict[1]) = predict[1] - predict[2]`
+        - 化简可得 `first[0] - first[1] = predict[0] - predict[1]`
+        - 依次类推可得 `first[0] - first[1] + first[2] -first[3] + … + fisrt[n-1] - first[n] = predict[0] - predict[n + 1]`
+
+**实际上第二部分存在一种取巧的方法，可以将输入的每一个数组都进行倒序，然后按照第一部分方法计算即可。**
