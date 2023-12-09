@@ -22,70 +22,51 @@ fn parse_input(input: &str) -> Vec<Vec<i64>> {
 }
 
 fn difference(values: &[i64]) -> Vec<i64> {
-    if values.len() < 2 {
-        values.to_vec()
-    } else {
-        values.windows(2).map(|w| w[1] - w[0]).collect()
-    }
+    values.windows(2).map(|w| w[1] - w[0]).collect()
 }
 
 fn all_zero(values: &[i64]) -> bool {
     values.iter().all(|n| n == &0)
 }
 
-fn predict_last(history: &[i64]) -> Option<i64> {
-    if history.len() < 2 {
-        return None;
-    }
-
-    let mut last = vec![];
+fn predict_last(history: &[i64]) -> i64 {
+    let mut last = 0;
 
     let mut values = history.to_vec();
     while !all_zero(&values) {
-        last.push(*values.last().unwrap());
+        last += *values.last().unwrap();
         values = difference(&values);
     }
-    Some(last.iter().sum())
+    last
 }
 
 fn part1(histories: &[Vec<i64>]) -> Result<i64> {
     let start = Instant::now();
 
-    let result = histories.iter().map(|h| predict_last(h).unwrap()).sum();
+    let result = histories.iter().map(|h| predict_last(h)).sum();
 
     writeln!(io::stdout(), "Part 1: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
     Ok(result)
 }
 
-fn predict_first(history: &[i64]) -> Option<i64> {
-    if history.len() < 2 {
-        return None;
-    }
-
-    let mut first = vec![];
+fn predict_first(history: &[i64]) -> i64 {
+    let mut first = 0;
+    let mut sign = 1;
 
     let mut values = history.to_vec();
     while !all_zero(&values) {
-        first.push(values[0]);
+        first += sign * values[0];
+        sign *= -1;
         values = difference(&values);
     }
-    let mut sign = -1;
-    Some(
-        first
-            .iter()
-            .map(|n| {
-                sign *= -1;
-                n * sign
-            })
-            .sum(),
-    )
+    first
 }
 
 fn part2(histories: &[Vec<i64>]) -> Result<i64> {
     let start = Instant::now();
 
-    let result = histories.iter().map(|h| predict_first(h).unwrap()).sum();
+    let result = histories.iter().map(|h| predict_first(h)).sum();
 
     writeln!(io::stdout(), "Part 2: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
