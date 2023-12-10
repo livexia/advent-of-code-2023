@@ -318,3 +318,31 @@ Advent of Code 2023
         - 依次类推可得 `first[0] - first[1] + first[2] -first[3] + … + fisrt[n-1] - first[n] = predict[0] - predict[n + 1]`
 
 **实际上第二部分存在一种取巧的方法，可以将输入的每一个数组都进行倒序，然后按照第一部分方法计算即可。**
+
+## Day 10 (TODO)
+
+思路 1
+
+- 将输入的字符直接对应为 Pipe
+
+思路 2: 并查集
+
+- 输入为相连的路径
+- 构造 Tile
+
+**Double Resolution**/**Flood Fill**
+
+- 
+
+**Ray Casting(line crossing)**
+
+- https://old.reddit.com/r/adventofcode/comments/18evyu9/2023_day_10_solutions/kcr28lt/
+- https://en.wikipedia.org/wiki/Ray_casting
+- https://gamedev.stackexchange.com/questions/141460/how-can-i-fill-the-interior-of-a-closed-loop-on-a-tile-map
+
+**计算机图像处理?**
+
+- https://old.reddit.com/r/adventofcode/comments/18evyu9/2023_day_10_solutions/kcqufnn/
+    
+    > [Part 2](https://github.com/PaigePalisade/AdventOfCode2023/blob/main/Solutions/day10part2.c) was a bit of a struggle for me. At some point I figured that the best way of solving it was to print the path with box building unicode characters, put a screenshot of it into gimp, fill the inside of the path with the fill tool, and then count the number of periods in the filled region. For some reason, this didn't work and I'm not going to debug that janky solution.
+    >
