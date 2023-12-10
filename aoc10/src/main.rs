@@ -297,8 +297,8 @@ fn part2_raycast(grid: &mut Grid) -> Result<usize> {
         let mut last_corner = None;
         for y in 0..grid.bound.1 {
             if loop_path.contains(&(x, y)) {
-                // FJ count as one crossing and L7 count as one crossing
-                // LJ and F7 does not count as one crossing
+                // F---J count as one crossing and L---7 count as one crossing
+                // L---J and F---7 does not count as one crossing
                 match grid.get(&(x, y)).unwrap().connect {
                     (North, South) => {
                         crossing_count += 1;
