@@ -207,18 +207,6 @@ fn part2(grid: &Grid) -> Result<usize> {
             }
         }
     }
-    for row in expand_map.iter().step_by(2) {
-        for &c in row.iter().step_by(2) {
-            if c == 2 {
-                print!("O")
-            } else if c == 1 {
-                print!(".")
-            } else {
-                print!("I");
-            }
-        }
-        println!();
-    }
 
     let mut visited = HashSet::new();
 
@@ -233,21 +221,12 @@ fn part2(grid: &Grid) -> Result<usize> {
         }
     }
 
-    let mut result = 0;
-
-    for row in expand_map.iter().step_by(2) {
-        for &c in row.iter().step_by(2) {
-            if c == 2 {
-                print!("O")
-            } else if c == 1 {
-                print!(".")
-            } else {
-                print!("I");
-                result += 1;
-            }
-        }
-        println!();
-    }
+    let result = expand_map
+        .iter()
+        .step_by(2)
+        .flat_map(|r| r.iter().step_by(2))
+        .filter(|n| n == &&0)
+        .count();
 
     writeln!(io::stdout(), "Part 2: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
