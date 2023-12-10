@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::time::Instant;
@@ -170,9 +170,10 @@ fn part2(grid: &Grid) -> Result<usize> {
 
     let loop_path = get_loop(grid).unwrap();
 
-    let bound = grid.bound;
-    let mut expand_map = vec![vec![0; bound.1 as usize * 2 - 1]; bound.0 as usize * 2 - 1];
+    let bound = (grid.bound.0 * 2 - 1, grid.bound.1 * 2 - 1);
+    let mut expand_map = vec![vec![0; bound.1 as usize]; bound.0 as usize];
     let mut connected_pipe = HashSet::new();
+
     for (p1, p2) in loop_path
         .iter()
         .cloned()
@@ -194,39 +195,44 @@ fn part2(grid: &Grid) -> Result<usize> {
         expand_map[x as usize * 2][y as usize * 2] = 1;
     }
 
+    let mut queue = VecDeque::new();
+
     for x in 0..expand_map.len() {
         for y in 0..expand_map[0].len() {
             if (x == 0 || y == 0 || x == expand_map.len() - 1 || y == expand_map[0].len() - 1)
                 && expand_map[x][y] == 0
             {
                 expand_map[x][y] = 2;
+                queue.push_back((x, y));
             }
         }
+    }
+    for row in expand_map.iter().step_by(2) {
+        for &c in row.iter().step_by(2) {
+            if c == 2 {
+                print!("O")
+            } else if c == 1 {
+                print!(".")
+            } else {
+                print!("I");
+            }
+        }
+        println!();
     }
 
     let mut visited = HashSet::new();
 
-    // search start from wall
-    // left and right wall
-    for x in 0..expand_map.len() {
-        let (left, right) = (0, expand_map[0].len() - 1);
-        if expand_map[x][left] == 2 {
-            dfs((x, left), &mut expand_map, &mut visited);
-        }
-        if expand_map[x][right] == 2 {
-            dfs((x, right), &mut expand_map, &mut visited);
+    while let Some((x, y)) = queue.pop_front() {
+        if visited.insert((x, y)) {
+            for (nx, ny) in adjacent_pos(&(x as i32, y as i32)) {
+                if is_in_bound(&(nx, ny), &bound) && expand_map[nx as usize][ny as usize] == 0 {
+                    expand_map[nx as usize][ny as usize] = 2;
+                    queue.push_back((nx as usize, ny as usize))
+                }
+            }
         }
     }
 
-    for y in 0..expand_map[0].len() {
-        let (top, bottom) = (0, expand_map.len() - 1);
-        if expand_map[top][y] == 2 {
-            dfs((top, y), &mut expand_map, &mut visited);
-        }
-        if expand_map[bottom][y] == 2 {
-            dfs((bottom, y), &mut expand_map, &mut visited);
-        }
-    }
     let mut result = 0;
 
     for row in expand_map.iter().step_by(2) {
@@ -243,17 +249,6 @@ fn part2(grid: &Grid) -> Result<usize> {
         println!();
     }
 
-    // for x in (0..expand_map.len()).step_by(2) {
-    //     for y in (0..expand_map.len()).step_by(2) {
-    //         if expand_map[x][y] == 2 {
-    //             result += 1;
-    //         }
-    //     }
-    // }
-    dbg!(result, grid.bound.0 * grid.bound.1, loop_path.len());
-
-    // result = (grid.bound.0 * grid.bound.1) as usize - loop_path.len() - result;
-
     writeln!(io::stdout(), "Part 2: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
     Ok(result)
@@ -264,10 +259,11 @@ fn adjacent_pos(pos: &Coord) -> [Coord; 4] {
     [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
 }
 
+#[allow(dead_code)]
 fn dfs(pos: (usize, usize), map: &mut [Vec<u8>], visited: &mut HashSet<(usize, usize)>) {
     if visited.insert(pos) {
         let (x, y) = pos;
-        let bound = (map.len(), map[0].len());
+        let bound = (map.len() as i32, map[0].len() as i32);
         for (nx, ny) in adjacent_pos(&(x as i32, y as i32)) {
             if is_in_bound(&(nx, ny), &bound) && map[nx as usize][ny as usize] == 0 {
                 map[nx as usize][ny as usize] = 2;
@@ -277,11 +273,8 @@ fn dfs(pos: (usize, usize), map: &mut [Vec<u8>], visited: &mut HashSet<(usize, u
     }
 }
 
-fn is_in_bound(next_pos: &(i32, i32), bound: &(usize, usize)) -> bool {
-    next_pos.0 >= 0
-        && next_pos.1 >= 0
-        && (next_pos.0 as usize) < bound.0
-        && (next_pos.1 as usize) < bound.1
+fn is_in_bound(next_pos: &(i32, i32), bound: &(i32, i32)) -> bool {
+    next_pos.0 >= 0 && next_pos.1 >= 0 && (next_pos.0) < bound.0 && (next_pos.1) < bound.1
 }
 
 fn main() -> Result<()> {
