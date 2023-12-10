@@ -319,30 +319,101 @@ Advent of Code 2023
 
 **实际上第二部分存在一种取巧的方法，可以将输入的每一个数组都进行倒序，然后按照第一部分方法计算即可。**
 
-## Day 10 (TODO)
+## Day 10
 
-思路 1
+### ****************************************Brute Force and BFS [[code](https://github.com/livexia/advent-of-code-2023/blob/51559bfee7d0b08eccb3ca62c77e078c6ca4d583/aoc10/src/main.rs)]**
 
-- 将输入的字符直接对应为 Pipe
+- 并没有按照方向前进
+- 而是遍历当前 `Pipe` 四周所有的 `Pipe`
+- 根据两个 `Pipe` 的链接情况确定下一个 `Pipe` 的位置
+- 递归遍历**没有访问（搜索）过的位置**，直到无法确定下一个 `Pipe`
+- 因为不确定起始点的 `Pipe` 类型，起始点的 `Pipe` 可与邻接的四个 `Pipe` 都连通
+- 使用 `BFS` ，确定 `BFS` 最长路径长度，第一部分的结果是最长路径长度的一半
 
-思路 2: 并查集
+### **************************Move along and DFS/BFS [**************************[DFS](https://github.com/livexia/advent-of-code-2023/blob/74afe4cc89c7fcb143d1c9da6da1c93e53eb06ab/aoc10/src/main.rs)**************************/BFS]**************************
 
-- 输入为相连的路径
-- 构造 Tile
+- 根据水管的方向进行移动
+- 初始时同样存在四种可能的移动方向
+- 根据移动方向计算下一个位置坐标
+- 取得下一个位置坐标处的水管类型，确定移动方向是否能与该水管连通
+- 如果无法连通，则当前最初的移动方向存在错误
+- 如果可以连通，则更新当前坐标，同时根据水管类型更新移动方向
+    - 第一部分可以只计算路径长度，也可以保留所有连通水管的坐标，第二部分实际上是需要所有连通水管的坐标的
+- **直到回到原点**，表明初始的移动方向正确，结合最后的移动方向，可以确定初始水管的类型
+- 可以用 BFS 或者 DFS 实现，不过 DFS 可能会栈溢出
 
-**Double Resolution**/**Flood Fill**
+第一部分上述两种思路和方法都可以得出正确的解，但是对于第二部分，实际上第二种方法更加合理，从思路和逻辑上看也是第二种方法更加清晰，更容易理解题意。尝试在第一种方法的基础上实现第二部分，耗费了我大量的时间，同时因为这种方法存在混乱，使得迟迟无法对第二部分作出有效的解答，所以狠下心来重新按照第二种方法解决了第一部分，也较容易得处了第二部分所需要的循环路径上的节点，当然第二部分也依旧没有因此而快速解决，**以下几种解决第二部分的方法，我只实现了第一种 Double Resolution / Flood Fill ，其余的方法都来自 Reddit ，我认为都是要优于我自己想到的方法。**
 
-- 
+### **Double Resolution** / **Flood Fill [[code](https://github.com/livexia/advent-of-code-2023/blob/6a43dbb06d8346383f1d85f887dd4ba42221927e/aoc10/src/main.rs#L187-L253)]**
 
-**Ray Casting(line crossing)**
+- 利用上述第一部分的第二种方法，计算循环的路径保存为 `loop_path`
+- 两倍放大网格，在原由的每一个`Tile` 四周填入新的 `Tile`
+- 构造二维数组表示网格，为 `expand_map` ，元素为 `1` 表示处于循环，元素为 `0` 表示被循环包含，元素为 `2` 则表示不被循环包含
+    - 也可以使用 `false` 表示不被包含，`true` 表示被包含，但是在判断过程中，要将补齐的 `Pipe` 间的节点加入到所有的循环节点中，再确定当前的搜索节点是是否处于循环中
+- 因为网格被放大了，在初始化 `expand_map` 时，要注意 `Pipe` 的坐标需要两倍放大
+    - `expand_map[x1 as usize * 2][y1 as usize * 2] = 1`
+- 同时需要补齐 Pipe 间的连接
+    - 依次比较循环路径 `loop_path` 中的前后水管
+    - 如果水管处于同一行，那么需要补齐左右两个水管间的节点
+    - 如果水管处于同一列，那么需要补齐上下两个水管间的节点
+- 同时要对 `expand_map` 的四边进行初始化，四个边上所有不是循环路径（补齐后）的元素都应当为 `2` ，即未被循环包含
+- 完成了 `expand_map` 的初始化后，可以从四边未被循环包含的节点开始搜索，当前搜索节点的四个邻接节点中为 `0` 的节点置为 `2` 即可，利用 BFS 或者 DFS 完全全部搜索
+- 最后将 `expand_map` 缩小，去除所有奇数行和奇数列的节点，统计所有为 `0` 的节点数量即是第二部分的解
+
+### Line Crossing (****Ray Casting) / Shoelace Theorem? [[code](https://github.com/livexia/advent-of-code-2023/blob/9bb4e26da49eece00fccc432614d83b886cac76e/aoc10/src/main.rs#L287-L322)]**
+
+这个方法我根本没想到，记忆里往年也是有用这个方法的，这个方法不算是平时算法练习里会出现的，感觉上这个方法是正确的，但是并没有阅读过完整的证明，即我********************************只知其然，不知其所以然********************************参，考链接如下：
 
 - https://old.reddit.com/r/adventofcode/comments/18evyu9/2023_day_10_solutions/kcr28lt/
 - https://en.wikipedia.org/wiki/Ray_casting
 - https://gamedev.stackexchange.com/questions/141460/how-can-i-fill-the-interior-of-a-closed-loop-on-a-tile-map
+
+**算法概述**
+
+- 想象从闭合曲线外的一个点发射一条直线与曲线相交
+- 当直线与曲线未相交时，直线的所有部分都在闭合曲线外
+- 当直线与曲线相交一次，发射点到交点部分都在闭合曲线外，而交点到当前直线末端的部分在闭合曲线内
+- 当直线与曲线相交两次时，第一个交点到第二个交点部分都在闭合曲线内，而第二个交点到当前直线末端的部分在闭合曲线外
+- 以此类推，可以发现对于所有的**奇数 N ，第 N 个交点到第 N + 1 个交点间的直线线段都在曲线内**
+- 也可以换一种思路
+- 想象从闭合曲线外的一个点发射一条直线与曲线相交，初始闭合曲线入度为 0，出度为 0
+- 当直线与曲线第一次相交时，闭合曲线的入度加 1 ，为 1
+- 当直线与曲线第二次相交时，闭合曲线的出度加 1 ，为 1
+- 即每当奇数次相交时，入度加 1 ，而偶数次相交时，出度加 1
+- 当入度和出度相同的时候，直线的这部分不被曲线包含
+- 当入度比出度大一的时候，直线的这部分被曲线包含
+
+**具体思路**
+
+- 依旧利用上述第一部分的第二种方法，计算循环的路径保存为 `loop_path` ，结果保存在 `result` 中
+- 按行遍历网格，即从当前行的最左侧向右发射直线，默认相交计数为 0 ，即 `crossing_count = 0`
+- 依次按行向右判断，如果当前节点为 `Pipe` ，说明当前行与循环相交或者相切
+- 如果当前 `Pipe` 为 `-` 那么就是相切，不必考虑
+- 如果当前 `Pipe` 为 `|` 那么必然相交，相交计数加一 `crossing_count += 1`
+- 当 `Pipe` 为弯角即 `F J L 7` 的一种时，需要考虑上一次遇见的弯角水管 `last_corner`
+    - 如果`last_corner == F && pipe == J` ，是竖着的折现，那么是相交的情况 `crossing_count += 1`
+    - 如果`last_corner == F && pipe == 7` ，是 U 型管，可以想象当前行实际上是跟着水管走了，那么是相切的情况，不必考虑
+    - 如果`last_corner == L && pipe == 7` ，是竖着的折现，那么是相交的情况 `crossing_count += 1`
+    - 如果`last_corner == L && pipe == J` ，是倒的 U 型管，可以想象当前行实际上是跟着水管走了，那么是相切的情况，不必考虑
+    - 对四种情况进行分析，可以发现只需要在当前水管是 7 或 J 的时候对相交计数加一 `crossing_count += 1` 即可，无需记录上次遇见的弯角水管
+
+### ****************************More Solutions****************************
 
 **计算机图像处理?**
 
 - https://old.reddit.com/r/adventofcode/comments/18evyu9/2023_day_10_solutions/kcqufnn/
     
     > [Part 2](https://github.com/PaigePalisade/AdventOfCode2023/blob/main/Solutions/day10part2.c) was a bit of a struggle for me. At some point I figured that the best way of solving it was to print the path with box building unicode characters, put a screenshot of it into gimp, fill the inside of the path with the fill tool, and then count the number of periods in the filled region. For some reason, this didn't work and I'm not going to debug that janky solution.
-    >
+    > 
+
+**标记循环移动方向同一侧邻接节点（未实现）**
+
+- 从循环起点顺时针或者逆时针前进时，前进方向同一侧（右侧或左侧）的所有节点要么被循环包含，要么不被循环包含
+- 标记前进方向同一侧（右侧或左侧）的节点
+- 对这些标记节点进行 BFS 或 DFS 对所有邻接且不在循环上的节点进行标记，直到完成所有节点的遍历
+- 判断左上角第一个节点是否被标记
+    - 如果被标记则意味着该节点不在循环上，同时该节点接墙，那么所有标记的节点都不被循环包含，所有节点数减去循环节点数再减去标记节点数，即是被循环包含的节点
+    - 如果不被标记，那么该节点原来应当是 Pipe ，同时也处于循环，那么所有标记的节点都应当被循环包含，直接统计标记节点数即可
+- https://old.reddit.com/r/adventofcode/comments/18evyu9/2023_day_10_solutions/kcqnr5i/
+    - https://github.com/yangdanny97/advent-of-code-2023-rust/blob/main/src/day10/mod.rs
+
