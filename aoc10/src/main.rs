@@ -191,7 +191,6 @@ fn part2(grid: &Grid) -> Result<usize> {
 
     let bound = (grid.bound.0 * 2 - 1, grid.bound.1 * 2 - 1);
     let mut expand_map = vec![vec![0; bound.1 as usize]; bound.0 as usize];
-    let mut connected_pipe = HashSet::new();
 
     for (p1, p2) in loop_path
         .iter()
@@ -199,19 +198,14 @@ fn part2(grid: &Grid) -> Result<usize> {
         .zip(loop_path.iter().cloned().cycle().skip(1))
         .take(loop_path.len())
     {
-        connected_pipe.insert((p1, p2));
-        connected_pipe.insert((p2, p1));
         let (x1, y1) = p1;
+        expand_map[x1 as usize * 2][y1 as usize * 2] = 1;
         let (x2, y2) = p2;
         match ((x1 - x2).abs(), (y1 - y2).abs()) {
             (1, 0) => expand_map[x1.min(x2) as usize * 2 + 1][y1 as usize * 2] = 1,
             (0, 1) => expand_map[x1 as usize * 2][y1.min(y2) as usize * 2 + 1] = 1,
             _ => panic!("There is no way"),
         }
-    }
-
-    for &(x, y) in &loop_path {
-        expand_map[x as usize * 2][y as usize * 2] = 1;
     }
 
     let mut queue = VecDeque::new();
@@ -227,7 +221,6 @@ fn part2(grid: &Grid) -> Result<usize> {
         }
     }
 
-    print_map(&expand_map, 2)?;
     let mut visited = HashSet::new();
 
     while let Some((x, y)) = queue.pop_front() {
@@ -317,6 +310,18 @@ fn part2_example_input() {
 .|..|.|..|.
 .L--J.L--J.
 ...........";
+    let grid = parse_input(input);
+    assert_eq!(part2(&grid).unwrap(), 4);
+
+    let input = "..........
+.S------7.
+.|F----7|.
+.||OOOO||.
+.||OOOO||.
+.|L-7F-J|.
+.|II||II|.
+.L--JL--J.
+..........";
     let grid = parse_input(input);
     assert_eq!(part2(&grid).unwrap(), 4);
 
