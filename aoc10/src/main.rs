@@ -132,19 +132,6 @@ fn parse_input<T: AsRef<str>>(input: T) -> Grid {
     Grid { map, start, bound }
 }
 
-fn scurry(pos: &Coord, move_dir: &Direction, grid: &Grid, path: &mut Vec<Coord>) -> bool {
-    match grid.move_inside_grid(pos, move_dir) {
-        Ok(next) => {
-            path.push(*pos);
-            match next {
-                None => true,
-                Some((np, nd)) => scurry(&np, &nd, grid, path),
-            }
-        }
-        _ => false,
-    }
-}
-
 fn get_loop(grid: &Grid) -> Option<Vec<Coord>> {
     let start_pos = grid.start;
 
@@ -154,10 +141,15 @@ fn get_loop(grid: &Grid) -> Option<Vec<Coord>> {
         Direction::East,
         Direction::West,
     ] {
-        if let Ok(Some((np, nd))) = grid.move_inside_grid(&start_pos, &move_dir) {
+        if let Ok(Some((p, d))) = grid.move_inside_grid(&start_pos, &move_dir) {
             let mut path = vec![grid.start];
-            if scurry(&np, &nd, grid, &mut path) {
-                return Some(path);
+            let (mut np, mut nd) = (p, d);
+            while let Ok(next) = grid.move_inside_grid(&np, &nd) {
+                path.push(np);
+                match next {
+                    None => return Some(path),
+                    Some((p, d)) => (np, nd) = (p, d),
+                }
             }
         }
     }
