@@ -211,10 +211,16 @@ fn part2(grid: &Grid) -> Result<usize> {
     let mut queue = VecDeque::new();
 
     for x in 0..expand_map.len() {
+        for y in [0, expand_map[0].len() - 1] {
+            if expand_map[x][y] == 0 {
+                expand_map[x][y] = 2;
+                queue.push_back((x, y));
+            }
+        }
+    }
+    for x in [0, expand_map.len() - 1] {
         for y in 0..expand_map[0].len() {
-            if (x == 0 || y == 0 || x == expand_map.len() - 1 || y == expand_map[0].len() - 1)
-                && expand_map[x][y] == 0
-            {
+            if expand_map[x][y] == 0 {
                 expand_map[x][y] = 2;
                 queue.push_back((x, y));
             }
