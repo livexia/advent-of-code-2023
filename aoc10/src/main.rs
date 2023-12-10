@@ -294,40 +294,18 @@ fn part2_raycast(grid: &mut Grid) -> Result<usize> {
     let mut result = 0;
     for x in 0..grid.bound.0 {
         let mut crossing_count = 0;
-        let mut last_corner = None;
         for y in 0..grid.bound.1 {
             if loop_path.contains(&(x, y)) {
                 // F---J count as one crossing and L---7 count as one crossing
+                // FJ -> +1 L7 -> +1
                 // L---J and F---7 does not count as one crossing
+                // F7 -> +0 LJ -> +0
                 match grid.get(&(x, y)).unwrap().connect {
-                    (North, South) => {
+                    (North, South) | (North, East) | (North, West) => {
+                        // | and L and J increase counter
+                        // or | and F and 7 increase counter
                         crossing_count += 1;
-                        last_corner = None;
                     }
-                    (North, East) => {
-                        // L
-                        last_corner = Some('L');
-                    }
-                    (North, West) => {
-                        // J
-                        if last_corner == Some('F') {
-                            crossing_count += 1;
-                        }
-                        last_corner = None;
-                    }
-                    (East, South) => {
-                        // F
-                        last_corner = Some('F')
-                    }
-                    (West, South) => {
-                        // 7
-                        if last_corner == Some('L') {
-                            // FJ
-                            crossing_count += 1;
-                        }
-                        last_corner = None;
-                    }
-
                     _ => (),
                 }
             } else {
