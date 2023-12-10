@@ -94,13 +94,15 @@ impl Grid {
         pos: &Coord,
         move_dir: &Direction,
     ) -> Result<Option<(Coord, Direction)>> {
-        let next_pos = move_dir.next_pos(pos);
-        if next_pos == self.start {
-            return Ok(None);
-        }
-        if let Some(next_pipe) = self.get(&next_pos) {
-            if let Some(new_dir) = next_pipe.new_direction(move_dir) {
-                return Ok(Some((next_pos, new_dir)));
+        if pos.0 >= 0 && pos.1 >= 0 && pos.0 < self.bound.0 && pos.1 < self.bound.1 {
+            let next_pos = move_dir.next_pos(pos);
+            if next_pos == self.start {
+                return Ok(None);
+            }
+            if let Some(next_pipe) = self.get(&next_pos) {
+                if let Some(new_dir) = next_pipe.new_direction(move_dir) {
+                    return Ok(Some((next_pos, new_dir)));
+                }
             }
         }
         err!("There is no loop")
@@ -119,7 +121,7 @@ fn parse_input<T: AsRef<str>>(input: T) -> Grid {
     {
         bound.0 = bound.0.max(x as i32 + 1);
         for (y, c) in line.trim().chars().enumerate() {
-            bound.1 = bound.1.max(x as i32 + 1);
+            bound.1 = bound.1.max(y as i32 + 1);
             if c == 'S' {
                 start = (x as i32, y as i32);
             } else if let Some(pipe) = Pipe::from_char(c) {
@@ -176,6 +178,8 @@ fn part2(grid: &Grid) -> Result<usize> {
 
     let loop_path = get_loop(grid).unwrap();
 
+    let bound = grid.bound;
+    let mut expand_map = vec![vec![0; bound.1 as usize * 2 - 1]; bound.0 as usize * 2 - 1];
     let mut connected_pipe = HashSet::new();
     for (p1, p2) in loop_path
         .iter()
@@ -185,22 +189,24 @@ fn part2(grid: &Grid) -> Result<usize> {
     {
         connected_pipe.insert((p1, p2));
         connected_pipe.insert((p2, p1));
+        let (x1, y1) = p1;
+        let (x2, y2) = p2;
+        match ((x1 - x2).abs(), (y1 - y2).abs()) {
+            (1, 0) => expand_map[x1.min(x2) as usize * 2 + 1][y1 as usize * 2] = 1,
+            (0, 1) => expand_map[x1 as usize * 2][y1.min(y2) as usize * 2 + 1] = 1,
+            _ => panic!("There is no way"),
+        }
     }
 
-    let bound = grid.bound;
-
-    dbg!(bound);
-    let mut expand_map = vec![vec![0; bound.1 as usize * 2 - 1]; bound.0 as usize * 2 - 1];
-
-    // init expanded map
-    for (x, y) in loop_path {
+    for &(x, y) in &loop_path {
         expand_map[x as usize * 2][y as usize * 2] = 1;
     }
+
     for x in 0..expand_map.len() {
         for y in 0..expand_map[0].len() {
-            if adjacent_pipe_connected(&(x as i32, y as i32), &connected_pipe) {
-                expand_map[x][y] = 1;
-            } else if x == 0 || y == 0 && expand_map[x][y] == 0 {
+            if (x == 0 || y == 0 || x == expand_map.len() - 1 || y == expand_map[0].len() - 1)
+                && expand_map[x][y] == 0
+            {
                 expand_map[x][y] = 2;
             }
         }
@@ -229,8 +235,32 @@ fn part2(grid: &Grid) -> Result<usize> {
             dfs((bottom, y), &mut expand_map, &mut visited);
         }
     }
+    let mut result = 0;
 
-    let result = expand_map.iter().flatten().filter(|&&n| n == 2).count();
+    for row in expand_map.iter().step_by(2) {
+        for &c in row.iter().step_by(2) {
+            if c == 2 {
+                print!("O")
+            } else if c == 1 {
+                print!(".")
+            } else {
+                print!("I");
+                result += 1;
+            }
+        }
+        println!();
+    }
+
+    // for x in (0..expand_map.len()).step_by(2) {
+    //     for y in (0..expand_map.len()).step_by(2) {
+    //         if expand_map[x][y] == 2 {
+    //             result += 1;
+    //         }
+    //     }
+    // }
+    dbg!(result, grid.bound.0 * grid.bound.1, loop_path.len());
+
+    // result = (grid.bound.0 * grid.bound.1) as usize - loop_path.len() - result;
 
     writeln!(io::stdout(), "Part 2: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
@@ -260,18 +290,6 @@ fn is_in_bound(next_pos: &(i32, i32), bound: &(usize, usize)) -> bool {
         && next_pos.1 >= 0
         && (next_pos.0 as usize) < bound.0
         && (next_pos.1 as usize) < bound.1
-}
-
-fn adjacent_pipe_connected(pos: &(i32, i32), connected_pipe: &HashSet<(Coord, Coord)>) -> bool {
-    if pos.0 % 2 != 0 && pos.1 % 2 != 0 {
-        let (x, y) = pos;
-        let up = ((x - 1) / 2, y / 2);
-        let down = ((x + 1) / 2, y / 2);
-        let left = (x / 2, (y - 1) / 2);
-        let right = (x / 2, (y + 1) / 2);
-        return connected_pipe.contains(&(up, down)) || connected_pipe.contains(&(left, right));
-    }
-    false
 }
 
 fn main() -> Result<()> {
@@ -306,6 +324,18 @@ LJ.LJ";
 
 #[test]
 fn part2_example_input() {
+    let input = "...........
+.S-------7.
+.|F-----7|.
+.||.....||.
+.||.....||.
+.|L-7.F-J|.
+.|..|.|..|.
+.L--J.L--J.
+...........";
+    let grid = parse_input(input);
+    assert_eq!(part2(&grid).unwrap(), 4);
+
     let input = ".F----7F7F7F7F-7....
 .|F--7||||||||FJ....
 .||.FJ||||||||L7....
@@ -318,7 +348,6 @@ L--J.L7...LJS7F-7L7.
 ....L---J.LJ.LJLJ...
 ";
     let grid = parse_input(input);
-
     assert_eq!(part2(&grid).unwrap(), 8);
 }
 
@@ -327,5 +356,5 @@ fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let grid = parse_input(input);
     assert_eq!(part1(&grid).unwrap(), 6725);
-    // assert_eq!(part2(&grid).unwrap(), 6725);
+    assert_eq!(part2(&grid).unwrap(), 383);
 }
