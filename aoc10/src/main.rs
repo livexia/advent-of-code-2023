@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::time::Instant;
@@ -42,26 +42,25 @@ impl Direction {
 }
 
 #[derive(Debug)]
-struct Tile {
-    pos: Coord,
+struct Pipe {
     connect: (Direction, Direction),
 }
 
-impl Tile {
-    fn new(connect: (Direction, Direction), pos: Coord) -> Self {
-        Tile { pos, connect }
+impl Pipe {
+    fn new(connect: (Direction, Direction)) -> Self {
+        Pipe { connect }
     }
 
-    fn from_char(c: char, pos: Coord) -> Option<Self> {
+    fn from_char(c: char) -> Option<Self> {
         // default pipe direction
         use Direction::*;
         Some(match c {
-            '|' => Self::new((North, South), pos),
-            '-' => Self::new((West, East), pos),
-            'L' => Self::new((North, East), pos),
-            'J' => Self::new((North, West), pos),
-            '7' => Self::new((West, South), pos),
-            'F' => Self::new((East, South), pos),
+            '|' => Self::new((North, South)),
+            '-' => Self::new((West, East)),
+            'L' => Self::new((North, East)),
+            'J' => Self::new((North, West)),
+            '7' => Self::new((West, South)),
+            'F' => Self::new((East, South)),
             'S' => return None,
             _ => return None,
         })
@@ -80,17 +79,17 @@ impl Tile {
 }
 
 struct Grid {
-    map: HashMap<Coord, Tile>,
+    map: HashMap<Coord, Pipe>,
     start: Coord,
     bound: Coord,
 }
 
 impl Grid {
-    fn get(&self, pos: &Coord) -> Option<&Tile> {
+    fn get(&self, pos: &Coord) -> Option<&Pipe> {
         self.map.get(pos)
     }
 
-    fn move_inside_grid<'a>(
+    fn move_inside_grid(
         &self,
         pos: &Coord,
         move_dir: &Direction,
@@ -99,8 +98,8 @@ impl Grid {
         if next_pos == self.start {
             return Ok(None);
         }
-        if let Some(next_tile) = self.get(&next_pos) {
-            if let Some(new_dir) = next_tile.new_direction(&move_dir) {
+        if let Some(next_pipe) = self.get(&next_pos) {
+            if let Some(new_dir) = next_pipe.new_direction(move_dir) {
                 return Ok(Some((next_pos, new_dir)));
             }
         }
@@ -123,7 +122,7 @@ fn parse_input<T: AsRef<str>>(input: T) -> Grid {
             bound.1 = bound.1.max(x as i32 + 1);
             if c == 'S' {
                 start = (x as i32, y as i32);
-            } else if let Some(pipe) = Tile::from_char(c, (x as i32, y as i32)) {
+            } else if let Some(pipe) = Pipe::from_char(c) {
                 map.insert((x as i32, y as i32), pipe);
             }
         }
@@ -131,19 +130,13 @@ fn parse_input<T: AsRef<str>>(input: T) -> Grid {
     Grid { map, start, bound }
 }
 
-fn scurry(
-    pos: &Coord,
-    move_dir: &Direction,
-    grid: &Grid,
-    start_pos: &Coord,
-    path: &mut Vec<Coord>,
-) -> bool {
+fn scurry(pos: &Coord, move_dir: &Direction, grid: &Grid, path: &mut Vec<Coord>) -> bool {
     match grid.move_inside_grid(pos, move_dir) {
         Ok(next) => {
-            path.push(pos.clone());
+            path.push(*pos);
             match next {
                 None => true,
-                Some((np, nd)) => scurry(&np, &nd, grid, start_pos, path),
+                Some((np, nd)) => scurry(&np, &nd, grid, path),
             }
         }
         _ => false,
@@ -161,7 +154,7 @@ fn get_loop(grid: &Grid) -> Option<Vec<Coord>> {
     ] {
         if let Ok(Some((np, nd))) = grid.move_inside_grid(&start_pos, &move_dir) {
             let mut path = vec![grid.start];
-            if scurry(&np, &nd, grid, &start_pos, &mut path) {
+            if scurry(&np, &nd, grid, &mut path) {
                 return Some(path);
             }
         }
@@ -181,24 +174,26 @@ fn part1(grid: &Grid) -> Result<usize> {
 fn part2(grid: &Grid) -> Result<usize> {
     let _start = Instant::now();
 
-    let main_loop = get_loop(grid).unwrap();
+    let loop_path = get_loop(grid).unwrap();
 
     let mut connected_pipe = HashSet::new();
-    for (p1, p2) in main_loop
+    for (p1, p2) in loop_path
         .iter()
         .cloned()
-        .zip(main_loop.iter().cloned().cycle().skip(1))
-        .take(main_loop.len())
+        .zip(loop_path.iter().cloned().cycle().skip(1))
+        .take(loop_path.len())
     {
         connected_pipe.insert((p1, p2));
         connected_pipe.insert((p2, p1));
     }
 
     let bound = grid.bound;
+
+    dbg!(bound);
     let mut expand_map = vec![vec![0; bound.1 as usize * 2 - 1]; bound.0 as usize * 2 - 1];
 
     // init expanded map
-    for (x, y) in main_loop {
+    for (x, y) in loop_path {
         expand_map[x as usize * 2][y as usize * 2] = 1;
     }
     for x in 0..expand_map.len() {
