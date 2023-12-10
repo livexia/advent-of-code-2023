@@ -165,6 +165,25 @@ fn part1(grid: &Grid) -> Result<usize> {
     Ok(result)
 }
 
+#[allow(dead_code)]
+fn print_map(map: &[Vec<u8>], step: usize) -> Result<()> {
+    let mut s = String::new();
+    for row in map.iter().step_by(step) {
+        for &c in row.iter().step_by(step) {
+            if c == 2 {
+                s.push('O')
+            } else if c == 1 {
+                s.push('.')
+            } else {
+                s.push('I')
+            }
+        }
+        s.push('\n')
+    }
+    writeln!(io::stdout(), "{s}")?;
+    Ok(())
+}
+
 fn part2(grid: &Grid) -> Result<usize> {
     let _start = Instant::now();
 
@@ -208,6 +227,7 @@ fn part2(grid: &Grid) -> Result<usize> {
         }
     }
 
+    print_map(&expand_map, 2)?;
     let mut visited = HashSet::new();
 
     while let Some((x, y)) = queue.pop_front() {
