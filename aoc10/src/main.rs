@@ -11,9 +11,8 @@ macro_rules! err {
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 
 type Coord = (i32, i32);
-type Grid = HashMap<Coord, Tile>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Direction {
     North,
     South,
@@ -22,8 +21,8 @@ enum Direction {
 }
 
 impl Direction {
-    fn next_pos(&self, cur_pos: Coord) -> Coord {
-        let (x, y) = cur_pos;
+    fn next_pos(&self, cur_pos: &Coord) -> Coord {
+        let &(x, y) = cur_pos;
         match self {
             Direction::North => (x - 1, y),
             Direction::South => (x + 1, y),
@@ -31,175 +30,182 @@ impl Direction {
             Direction::West => (x, y - 1),
         }
     }
+
+    fn reverse(&self) -> Self {
+        match self {
+            Direction::North => Direction::South,
+            Direction::South => Direction::North,
+            Direction::East => Direction::West,
+            Direction::West => Direction::East,
+        }
+    }
 }
 
 #[derive(Debug)]
 struct Tile {
-    is_start: bool,
     pos: Coord,
-    pipe_connect: Vec<Direction>,
+    connect: (Direction, Direction),
 }
 
 impl Tile {
-    fn new(connect: &[Direction], pos: Coord) -> Self {
-        Tile {
-            is_start: false,
-            pos,
-            pipe_connect: connect.to_vec(),
-        }
-    }
-
-    fn start(pos: Coord) -> Self {
-        use Direction::*;
-        Tile {
-            is_start: true,
-            pos,
-            pipe_connect: vec![North, South, West, East],
-        }
+    fn new(connect: (Direction, Direction), pos: Coord) -> Self {
+        Tile { pos, connect }
     }
 
     fn from_char(c: char, pos: Coord) -> Option<Self> {
+        // default pipe direction
         use Direction::*;
         Some(match c {
-            '|' => Self::new(&[North, South], pos),
-            '-' => Self::new(&[East, West], pos),
-            'L' => Self::new(&[North, East], pos),
-            'J' => Self::new(&[North, West], pos),
-            '7' => Self::new(&[West, South], pos),
-            'F' => Self::new(&[East, South], pos),
-            'S' => Self::start(pos),
+            '|' => Self::new((North, South), pos),
+            '-' => Self::new((West, East), pos),
+            'L' => Self::new((North, East), pos),
+            'J' => Self::new((North, West), pos),
+            '7' => Self::new((West, South), pos),
+            'F' => Self::new((East, South), pos),
+            'S' => return None,
             _ => return None,
         })
     }
 
-    fn connect_pos(&self) -> Vec<Coord> {
-        self.pipe_connect
-            .iter()
-            .map(|d| d.next_pos(self.pos))
-            .collect()
-    }
-
-    fn is_adjacent_connected(&self, other: &Self) -> bool {
-        self.connect_pos().contains(&other.pos) && other.connect_pos().contains(&self.pos)
+    fn new_direction(&self, dir: &Direction) -> Option<Direction> {
+        let dir = dir.reverse();
+        if self.connect.0 == dir {
+            Some(self.connect.1)
+        } else if self.connect.1 == dir {
+            Some(self.connect.0)
+        } else {
+            None
+        }
     }
 }
 
-fn parse_input<T: AsRef<str>>(input: T) -> (Grid, Coord) {
-    let mut grid = HashMap::new();
+struct Grid {
+    map: HashMap<Coord, Tile>,
+    start: Coord,
+    bound: Coord,
+}
+
+impl Grid {
+    fn get(&self, pos: &Coord) -> Option<&Tile> {
+        self.map.get(pos)
+    }
+
+    fn move_inside_grid<'a>(
+        &self,
+        pos: &Coord,
+        move_dir: &Direction,
+    ) -> Result<Option<(Coord, Direction)>> {
+        let next_pos = move_dir.next_pos(pos);
+        if next_pos == self.start {
+            return Ok(None);
+        }
+        if let Some(next_tile) = self.get(&next_pos) {
+            if let Some(new_dir) = next_tile.new_direction(&move_dir) {
+                return Ok(Some((next_pos, new_dir)));
+            }
+        }
+        err!("There is no loop")
+    }
+}
+
+fn parse_input<T: AsRef<str>>(input: T) -> Grid {
+    let mut map = HashMap::new();
     let mut bound = (0, 0);
+    let mut start = (0, 0);
     for (x, line) in input
         .as_ref()
         .lines()
         .filter(|l| !l.trim().is_empty())
         .enumerate()
     {
-        bound.0 = bound.0.max(x as i32);
+        bound.0 = bound.0.max(x as i32 + 1);
         for (y, c) in line.trim().chars().enumerate() {
-            bound.1 = bound.1.max(x as i32);
-            if let Some(pipe) = Tile::from_char(c, (x as i32, y as i32)) {
-                grid.insert((x as i32, y as i32), pipe);
+            bound.1 = bound.1.max(x as i32 + 1);
+            if c == 'S' {
+                start = (x as i32, y as i32);
+            } else if let Some(pipe) = Tile::from_char(c, (x as i32, y as i32)) {
+                map.insert((x as i32, y as i32), pipe);
             }
         }
     }
-    (grid, bound)
+    Grid { map, start, bound }
 }
 
-fn verify_start_pipe(grid: &Grid) -> Result<Vec<Tile>> {
-    let (pos, tile) = grid.iter().find(|(_, tile)| tile.is_start).unwrap();
-
-    // 0: up, 1: down, 2: left, 3: right
-    let adjacent_pipe: Vec<_> = adjacent_pos(pos).iter().map(|np| grid.get(np)).collect();
-    todo!()
+fn scurry(
+    pos: &Coord,
+    move_dir: &Direction,
+    grid: &Grid,
+    start_pos: &Coord,
+    path: &mut Vec<Coord>,
+) -> bool {
+    match grid.move_inside_grid(pos, move_dir) {
+        Ok(next) => {
+            path.push(pos.clone());
+            match next {
+                None => true,
+                Some((np, nd)) => scurry(&np, &nd, grid, start_pos, path),
+            }
+        }
+        _ => false,
+    }
 }
 
-fn adjacent_pos(pos: &Coord) -> [Coord; 4] {
-    let &(x, y) = pos;
-    [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+fn get_loop(grid: &Grid) -> Option<Vec<Coord>> {
+    let start_pos = grid.start;
+
+    for move_dir in [
+        Direction::North,
+        Direction::South,
+        Direction::East,
+        Direction::West,
+    ] {
+        if let Ok(Some((np, nd))) = grid.move_inside_grid(&start_pos, &move_dir) {
+            let mut path = vec![grid.start];
+            if scurry(&np, &nd, grid, &start_pos, &mut path) {
+                return Some(path);
+            }
+        }
+    }
+    None
 }
 
 fn part1(grid: &Grid) -> Result<usize> {
     let _start = Instant::now();
 
-    let start_tile = grid.iter().find(|(_, tile)| tile.is_start).unwrap().1;
-
-    let mut queue = VecDeque::new();
-    queue.push_back(start_tile);
-
-    let mut steps = 0;
-
-    let mut visited = HashSet::new();
-    while !queue.is_empty() {
-        let layer_count = queue.len();
-        for _ in 0..layer_count {
-            steps += 1;
-            let cur_tile = queue.pop_front().unwrap();
-            for next_pos in adjacent_pos(&cur_tile.pos) {
-                if let Some(next_tile) = grid.get(&next_pos) {
-                    if cur_tile.is_adjacent_connected(next_tile) && visited.insert(next_pos) {
-                        queue.push_back(next_tile);
-                    }
-                }
-            }
-        }
-    }
-
-    let result = steps / 2;
-
+    let result = get_loop(grid).unwrap().len() / 2;
     writeln!(io::stdout(), "Part 1: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
     Ok(result)
 }
 
-fn surround_pos(pos: &Coord) -> [Coord; 8] {
-    // order：
-    // 0 -> 1 -> 2
-    // 7         3
-    // 6 <- 5 <- 4
-    let &(x, y) = pos;
-    [
-        (x - 1, y - 1),
-        (x - 1, y),
-        (x - 1, y + 1),
-        (x, y + 1),
-        (x + 1, y + 1),
-        (x + 1, y),
-        (x + 1, y - 1),
-        (x, y - 1),
-    ]
-}
-fn is_enclosed_by_the_loop(pos: &Coord, connected_pipe: &HashSet<(Coord, Coord)>) -> bool {
-    let surround = surround_pos(pos);
-    surround
-        .iter()
-        .cycle()
-        .cloned()
-        .zip(surround.iter().cycle().cloned().skip(1))
-        .take(8)
-        .any(|t| !connected_pipe.contains(&t))
-}
-
-fn part2(grid: &Grid, bound: Coord) -> Result<usize> {
+fn part2(grid: &Grid) -> Result<usize> {
     let _start = Instant::now();
 
+    let main_loop = get_loop(grid).unwrap();
+
     let mut connected_pipe = HashSet::new();
-    for (&p1, t1) in grid.iter() {
-        for (&p2, t2) in grid.iter() {
-            if t1.is_adjacent_connected(t2) {
-                connected_pipe.insert((p1, p2));
-            }
-        }
+    for (p1, p2) in main_loop
+        .iter()
+        .cloned()
+        .zip(main_loop.iter().cloned().cycle().skip(1))
+        .take(main_loop.len())
+    {
+        connected_pipe.insert((p1, p2));
+        connected_pipe.insert((p2, p1));
     }
 
-    let mut expand_map = vec![vec![0; bound.1 as usize * 2 + 1]; bound.0 as usize * 2 + 1];
+    let bound = grid.bound;
+    let mut expand_map = vec![vec![0; bound.1 as usize * 2 - 1]; bound.0 as usize * 2 - 1];
 
     // init expanded map
+    for (x, y) in main_loop {
+        expand_map[x as usize * 2][y as usize * 2] = 1;
+    }
     for x in 0..expand_map.len() {
         for y in 0..expand_map[0].len() {
-            if pipe_in_the_loop(&(x, y)) {
+            if adjacent_pipe_connected(&(x as i32, y as i32), &connected_pipe) {
                 expand_map[x][y] = 1;
-            } else if adjacent_pipe_connected(&(x, y)) {
-                expand_map[x][y] = 1;
-            } else if x == 0 || y == 0 {
+            } else if x == 0 || y == 0 && expand_map[x][y] == 0 {
                 expand_map[x][y] = 2;
             }
         }
@@ -236,6 +242,11 @@ fn part2(grid: &Grid, bound: Coord) -> Result<usize> {
     Ok(result)
 }
 
+fn adjacent_pos(pos: &Coord) -> [Coord; 4] {
+    let &(x, y) = pos;
+    [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+}
+
 fn dfs(pos: (usize, usize), map: &mut [Vec<u8>], visited: &mut HashSet<(usize, usize)>) {
     if visited.insert(pos) {
         let (x, y) = pos;
@@ -256,41 +267,26 @@ fn is_in_bound(next_pos: &(i32, i32), bound: &(usize, usize)) -> bool {
         && (next_pos.1 as usize) < bound.1
 }
 
-fn adjacent_pipe_connected(pos: &(i32, i32), loop_pipes: &HashSet<Coord>, grid: &Grid) -> bool {
+fn adjacent_pipe_connected(pos: &(i32, i32), connected_pipe: &HashSet<(Coord, Coord)>) -> bool {
     if pos.0 % 2 != 0 && pos.1 % 2 != 0 {
         let (x, y) = pos;
         let up = ((x - 1) / 2, y / 2);
         let down = ((x + 1) / 2, y / 2);
         let left = (x / 2, (y - 1) / 2);
         let right = (x / 2, (y + 1) / 2);
-        return (loop_pipes.contains(&up)
-            && loop_pipes.contains(&down)
-            && grid
-                .get(&up)
-                .unwrap()
-                .is_adjacent_connected(grid.get(&down).unwrap()))
-            || (loop_pipes.contains(&left)
-                && loop_pipes.contains(&right)
-                && grid
-                    .get(&left)
-                    .unwrap()
-                    .is_adjacent_connected(grid.get(&right).unwrap()));
+        return connected_pipe.contains(&(up, down)) || connected_pipe.contains(&(left, right));
     }
     false
-}
-
-fn pipe_in_the_loop(pos: &(i32, i32), loop_pipes: &HashSet<Coord>) -> bool {
-    loop_pipes.contains(&(pos.0 / 2, pos.1 / 2))
 }
 
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
-    let (grid, bound) = parse_input(input);
+    let grid = parse_input(input);
 
     part1(&grid)?;
-    part2(&grid, bound)?;
+    part2(&grid)?;
     Ok(())
 }
 
@@ -301,7 +297,7 @@ fn example_input() {
 L|7||
 -L-J|
 L|-JF";
-    let (grid, _) = parse_input(input);
+    let grid = parse_input(input);
     assert_eq!(part1(&grid).unwrap(), 4);
 
     let input = "7-F7-
@@ -309,7 +305,7 @@ L|-JF";
 SJLL7
 |F--J
 LJ.LJ";
-    let (grid, _) = parse_input(input);
+    let grid = parse_input(input);
     assert_eq!(part1(&grid).unwrap(), 8);
 }
 
@@ -326,16 +322,15 @@ L--J.L7...LJS7F-7L7.
 ....FJL-7.||.||||...
 ....L---J.LJ.LJLJ...
 ";
-    let (grid, bound) = parse_input(input);
+    let grid = parse_input(input);
 
-    dbg!(part2(&grid, bound));
-    dbg!(grid.len());
+    assert_eq!(part2(&grid).unwrap(), 8);
 }
 
 #[test]
 fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
-    let (grid, bound) = parse_input(input);
+    let grid = parse_input(input);
     assert_eq!(part1(&grid).unwrap(), 6725);
-    assert_eq!(part2(&grid, &bound).unwrap(), 6725);
+    // assert_eq!(part2(&grid).unwrap(), 6725);
 }
