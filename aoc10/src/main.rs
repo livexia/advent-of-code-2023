@@ -132,22 +132,32 @@ fn parse_input<T: AsRef<str>>(input: T) -> Grid {
     Grid { map, start, bound }
 }
 
-fn get_loop(grid: &Grid) -> Option<Vec<Coord>> {
+fn get_loop(grid: &mut Grid) -> Option<Vec<Coord>> {
     let start_pos = grid.start;
 
-    for move_dir in [
-        Direction::North,
-        Direction::South,
-        Direction::East,
-        Direction::West,
-    ] {
+    use Direction::*;
+    for move_dir in [North, South, East, West] {
         if let Ok(Some((p, d))) = grid.move_inside_grid(&start_pos, &move_dir) {
             let mut path = vec![grid.start];
             let (mut np, mut nd) = (p, d);
             while let Ok(next) = grid.move_inside_grid(&np, &nd) {
                 path.push(np);
                 match next {
-                    None => return Some(path),
+                    None => {
+                        grid.map.insert(
+                            grid.start,
+                            match (move_dir, nd.reverse()) {
+                                (North, South) | (South, North) => Pipe::new((North, South)),
+                                (North, East) | (East, North) => Pipe::new((North, East)),
+                                (North, West) | (West, North) => Pipe::new((North, West)),
+                                (South, East) | (East, South) => Pipe::new((East, South)),
+                                (South, West) | (West, South) => Pipe::new((West, South)),
+                                (East, West) | (West, East) => Pipe::new((West, East)),
+                                _ => panic!(),
+                            },
+                        );
+                        return Some(path);
+                    }
                     Some((p, d)) => (np, nd) = (p, d),
                 }
             }
@@ -156,7 +166,7 @@ fn get_loop(grid: &Grid) -> Option<Vec<Coord>> {
     None
 }
 
-fn part1(grid: &Grid) -> Result<usize> {
+fn part1(grid: &mut Grid) -> Result<usize> {
     let _start = Instant::now();
 
     let result = get_loop(grid).unwrap().len() / 2;
@@ -184,7 +194,7 @@ fn print_map(map: &[Vec<u8>], step: usize) -> Result<()> {
     Ok(())
 }
 
-fn part2(grid: &Grid) -> Result<usize> {
+fn part2(grid: &mut Grid) -> Result<usize> {
     let _start = Instant::now();
 
     let loop_path = get_loop(grid).unwrap();
@@ -252,6 +262,9 @@ fn part2(grid: &Grid) -> Result<usize> {
     Ok(result)
 }
 
+fn is_in_bound(next_pos: &(i32, i32), bound: &(i32, i32)) -> bool {
+    next_pos.0 >= 0 && next_pos.1 >= 0 && (next_pos.0) < bound.0 && (next_pos.1) < bound.1
+}
 fn adjacent_pos(pos: &Coord) -> [Coord; 4] {
     let &(x, y) = pos;
     [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
@@ -271,18 +284,74 @@ fn dfs(pos: (usize, usize), map: &mut [Vec<u8>], visited: &mut HashSet<(usize, u
     }
 }
 
-fn is_in_bound(next_pos: &(i32, i32), bound: &(i32, i32)) -> bool {
-    next_pos.0 >= 0 && next_pos.1 >= 0 && (next_pos.0) < bound.0 && (next_pos.1) < bound.1
+fn part2_raycast(grid: &mut Grid) -> Result<usize> {
+    let _start = Instant::now();
+
+    use Direction::*;
+
+    let loop_path: HashSet<_> = get_loop(grid).unwrap().into_iter().collect();
+
+    let mut result = 0;
+    for x in 0..grid.bound.0 {
+        let mut crossing_count = 0;
+        let mut last_corner = None;
+        for y in 0..grid.bound.1 {
+            if loop_path.contains(&(x, y)) {
+                // FJ count as one crossing and L7 count as one crossing
+                // LJ and F7 does not count as one crossing
+                match grid.get(&(x, y)).unwrap().connect {
+                    (North, South) => {
+                        crossing_count += 1;
+                        last_corner = None;
+                    }
+                    (North, East) => {
+                        // L
+                        last_corner = Some('L');
+                    }
+                    (North, West) => {
+                        // J
+                        if last_corner == Some('F') {
+                            crossing_count += 1;
+                        }
+                        last_corner = None;
+                    }
+                    (East, South) => {
+                        // F
+                        last_corner = Some('F')
+                    }
+                    (West, South) => {
+                        // 7
+                        if last_corner == Some('L') {
+                            // FJ
+                            crossing_count += 1;
+                        }
+                        last_corner = None;
+                    }
+
+                    _ => (),
+                }
+            } else {
+                if crossing_count % 2 == 1 {
+                    result += 1;
+                }
+            }
+        }
+    }
+
+    writeln!(io::stdout(), "Part 2 with Raycast: {result}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+    Ok(result)
 }
 
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
-    let grid = parse_input(input);
+    let mut grid = parse_input(input);
 
-    part1(&grid)?;
-    part2(&grid)?;
+    part1(&mut grid)?;
+    part2(&mut grid)?;
+    part2_raycast(&mut grid)?;
     Ok(())
 }
 
@@ -293,16 +362,16 @@ fn example_input() {
 L|7||
 -L-J|
 L|-JF";
-    let grid = parse_input(input);
-    assert_eq!(part1(&grid).unwrap(), 4);
+    let mut grid = parse_input(input);
+    assert_eq!(part1(&mut grid).unwrap(), 4);
 
     let input = "7-F7-
 .FJ|7
 SJLL7
 |F--J
 LJ.LJ";
-    let grid = parse_input(input);
-    assert_eq!(part1(&grid).unwrap(), 8);
+    let mut grid = parse_input(input);
+    assert_eq!(part1(&mut grid).unwrap(), 8);
 }
 
 #[test]
@@ -316,8 +385,9 @@ fn part2_example_input() {
 .|..|.|..|.
 .L--J.L--J.
 ...........";
-    let grid = parse_input(input);
-    assert_eq!(part2(&grid).unwrap(), 4);
+    let mut grid = parse_input(input);
+    assert_eq!(part2(&mut grid).unwrap(), 4);
+    assert_eq!(part2_raycast(&mut grid).unwrap(), 4);
 
     let input = "..........
 .S------7.
@@ -328,8 +398,9 @@ fn part2_example_input() {
 .|II||II|.
 .L--JL--J.
 ..........";
-    let grid = parse_input(input);
-    assert_eq!(part2(&grid).unwrap(), 4);
+    let mut grid = parse_input(input);
+    assert_eq!(part2(&mut grid).unwrap(), 4);
+    assert_eq!(part2_raycast(&mut grid).unwrap(), 4);
 
     let input = ".F----7F7F7F7F-7....
 .|F--7||||||||FJ....
@@ -342,14 +413,30 @@ L--J.L7...LJS7F-7L7.
 ....FJL-7.||.||||...
 ....L---J.LJ.LJLJ...
 ";
-    let grid = parse_input(input);
-    assert_eq!(part2(&grid).unwrap(), 8);
+    let mut grid = parse_input(input);
+    assert_eq!(part2(&mut grid).unwrap(), 8);
+    assert_eq!(part2_raycast(&mut grid).unwrap(), 8);
+
+    let input = "FF7FSF7F7F7F7F7F---7
+L|LJ||||||||||||F--J
+FL-7LJLJ||||||LJL-77
+F--JF--7||LJLJ7F7FJ-
+L---JF-JLJ.||-FJLJJ7
+|F|F-JF---7F7-L7L|7|
+|FFJF7L7F-JF7|JL---7
+7-L-JL7||F7|L7F-7F7|
+L.L7LFJ|||||FJL7||LJ
+L7JLJL-JLJLJL--JLJ.L";
+    let mut grid = parse_input(input);
+    assert_eq!(part2(&mut grid).unwrap(), 10);
+    assert_eq!(part2_raycast(&mut grid).unwrap(), 10);
 }
 
 #[test]
 fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
-    let grid = parse_input(input);
-    assert_eq!(part1(&grid).unwrap(), 6725);
-    assert_eq!(part2(&grid).unwrap(), 383);
+    let mut grid = parse_input(input);
+    assert_eq!(part1(&mut grid).unwrap(), 6725);
+    assert_eq!(part2(&mut grid).unwrap(), 383);
+    assert_eq!(part2_raycast(&mut grid).unwrap(), 383);
 }
