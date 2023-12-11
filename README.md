@@ -321,7 +321,7 @@ Advent of Code 2023
 
 ## Day 10
 
-### ****************************************Brute Force and BFS [[code](https://github.com/livexia/advent-of-code-2023/blob/51559bfee7d0b08eccb3ca62c77e078c6ca4d583/aoc10/src/main.rs)]**
+### ****************************************Brute Force and BFS [[code](https://github.com/livexia/advent-of-code-2023/blob/51559bfee7d0b08eccb3ca62c77e078c6ca4d583/aoc10/src/main.rs)]****************************************
 
 - 并没有按照方向前进
 - 而是遍历当前 `Pipe` 四周所有的 `Pipe`
@@ -360,7 +360,7 @@ Advent of Code 2023
 - 完成了 `expand_map` 的初始化后，可以从四边未被循环包含的节点开始搜索，当前搜索节点的四个邻接节点中为 `0` 的节点置为 `2` 即可，利用 BFS 或者 DFS 完全全部搜索
 - 最后将 `expand_map` 缩小，去除所有奇数行和奇数列的节点，统计所有为 `0` 的节点数量即是第二部分的解
 
-### Line Crossing (****Ray Casting) / Shoelace Theorem? [[code](https://github.com/livexia/advent-of-code-2023/blob/9bb4e26da49eece00fccc432614d83b886cac76e/aoc10/src/main.rs#L287-L322)]**
+### Line Crossing (**Ray Casting) / Shoelace Theorem? [[code](https://github.com/livexia/advent-of-code-2023/blob/9bb4e26da49eece00fccc432614d83b886cac76e/aoc10/src/main.rs#L287-L322)]**
 
 这个方法我根本没想到，记忆里往年也是有用这个方法的，这个方法不算是平时算法练习里会出现的，感觉上这个方法是正确的，但是并没有阅读过完整的证明，即我********************************只知其然，不知其所以然********************************参，考链接如下：
 
@@ -417,3 +417,20 @@ Advent of Code 2023
 - https://old.reddit.com/r/adventofcode/comments/18evyu9/2023_day_10_solutions/kcqnr5i/
     - https://github.com/yangdanny97/advent-of-code-2023-rust/blob/main/src/day10/mod.rs
 
+### Day 11 [[code](https://github.com/livexia/advent-of-code-2023/blob/main/aoc11/src/main.rs)]
+
+今天的题目思路简单明了，输入为网格，记录其中字符为 `#` 的位置，第一部分要求将网格的中不包含任何的行和列都翻倍，而第二部分则是将这个倍数增加到 `1000000` 倍，要求计算翻倍后每一对唯一的 `#` 间的最短距离。
+
+******************网格翻倍：******************
+
+- 第一第二部分仅有扩张倍率不同，设变量 `expansion_rate` 表示
+- 可以先考虑对行进行翻倍，再以同样的方式考虑列
+- 初始 `empty_row = 0` 即当前未遇到任何不包含 `#` 的行
+- 遍历每一行
+- 对当前行上所有的 `#` 的坐标进行扩大， `(x, y) → (x * empty_row * (expansion_rate - 1))`
+    - 要注意要对 `expansion_rate - 1` ，因为是变为 `expansion_rate` 倍，而不是增加
+- 如果当前行上没有任何的 `#` 则对空行计数加一， `empty_row += 1`
+
+**最短距离**：因为是网格，同时网格间并不存在任何阻碍，所以直接计算曼哈顿距离即可 $D=∣x1​−x2​∣+∣y1​−y2​∣$
+
+****************性能优化****************：利用 `HashSet` 保存 `#` 的坐标，固然可以在查找时避免麻烦，但是在这个问题中完全没有必要，可以直接用 `Vec` 保存。
