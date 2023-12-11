@@ -28,9 +28,9 @@ macro_rules! err {
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 
 fn part1() -> Result<()> {
-    let start = Instant::now();
+    let _start = Instant::now();
 
-    writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
     todo!()
 }
 
@@ -67,9 +67,9 @@ EOM
 # type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 
 # fn part1() -> Result<()> {
-#     let start = Instant::now();
+#     let _start = Instant::now();
 
-#     writeln!(io::stdout(), "> Time elapsed is: {:?}", start.elapsed())?;
+#     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
 #     todo!()
 # }
 
