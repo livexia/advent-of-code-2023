@@ -9,74 +9,73 @@ macro_rules! err {
 
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 
-type Coord = (isize, isize);
+type Coord = (usize, usize);
 
 #[derive(Clone)]
 struct Image {
-    galaxies: Vec<Coord>,
+    raw: Vec<Vec<bool>>,
+    empty_rows: Vec<usize>,
+    empty_columns: Vec<usize>,
     bound: Coord,
 }
 
 impl Image {
-    fn expansion_rows(&mut self, expansion_rate: isize) {
-        let mut empty_row = 0;
-        let mut expanded_galaxies = Vec::new();
-        for x in 0..self.bound.0 {
-            let mut flag = true;
-            self.galaxies
-                .iter()
-                .filter(|(i, _)| i == &x)
-                .for_each(|(_, j)| {
-                    flag = false;
-                    expanded_galaxies.push((x + empty_row * (expansion_rate - 1), *j));
-                });
-            if flag {
-                empty_row += 1;
-            }
+    fn new(raw: Vec<Vec<bool>>) -> Self {
+        let bound = (raw.len(), raw[0].len());
+        Image {
+            empty_rows: Image::empty_rows(&raw),
+            empty_columns: Image::empty_columns(&raw),
+            raw,
+            bound,
         }
-        self.galaxies = expanded_galaxies;
     }
 
-    fn expansion_columns(&mut self, expansion_rate: isize) {
-        let mut empty_column = 0;
-        let mut expanded_galaxies = Vec::new();
-        for y in 0..self.bound.1 {
-            let mut flag = true;
-            self.galaxies
-                .iter()
-                .filter(|(_, j)| j == &y)
-                .for_each(|(i, _)| {
-                    flag = false;
-                    expanded_galaxies.push((*i, y + empty_column * (expansion_rate - 1)));
-                });
-            if flag {
-                empty_column += 1;
-            }
-        }
-        self.galaxies = expanded_galaxies;
+    fn empty_rows(raw: &[Vec<bool>]) -> Vec<usize> {
+        let mut count = 0;
+        raw.iter()
+            .map(|row| {
+                if row.iter().all(|b| !b) {
+                    count += 1;
+                }
+                count
+            })
+            .collect()
     }
 
-    fn update_bound(&mut self) {
-        self.bound = (
-            (self.galaxies.iter().max_by_key(|c| c.0).unwrap()).0 + 1,
-            (self.galaxies.iter().max_by_key(|c| c.1).unwrap()).1 + 1,
-        );
+    fn empty_columns(raw: &[Vec<bool>]) -> Vec<usize> {
+        let mut count = 0;
+        (0..raw[0].len())
+            .map(|y| {
+                if (0..raw.len()).all(|x| !raw[x][y]) {
+                    count += 1
+                }
+                count
+            })
+            .collect()
     }
 
-    fn expansion(&mut self, expansion_rate: isize) {
-        self.expansion_rows(expansion_rate);
-        self.expansion_columns(expansion_rate);
-        self.update_bound();
+    fn expansion(&self, pos: &Coord, expansion_rate: usize) -> Coord {
+        let empty_row = self.empty_rows[pos.0];
+        let empty_column = self.empty_columns[pos.1];
+        (
+            pos.0 + empty_row * (expansion_rate - 1),
+            pos.1 + empty_column * (expansion_rate - 1),
+        )
     }
 
-    fn shortest_path_sum(&self) -> isize {
-        fn dis(p1: &Coord, p2: &Coord) -> isize {
-            (p1.0 - p2.0).abs() + (p1.1 - p2.1).abs()
+    fn shortest_path_sum(&self, expansion_rate: usize) -> usize {
+        fn dis(p1: &Coord, p2: &Coord) -> usize {
+            p1.0.abs_diff(p2.0) + p1.1.abs_diff(p2.1)
         }
         let mut sum = 0;
-        for i in 0..self.galaxies.len() {
-            for j in i + 1..self.galaxies.len() {
-                sum += dis(&self.galaxies[i], &self.galaxies[j])
+        let galaxies: Vec<_> = (0..self.raw.len())
+            .flat_map(|x| (0..self.bound.1).map(move |y| (x, y)))
+            .filter(|(x, y)| self.raw[*x][*y])
+            .map(|p| self.expansion(&p, expansion_rate))
+            .collect();
+        for i in 0..galaxies.len() {
+            for j in i + 1..galaxies.len() {
+                sum += dis(&galaxies[i], &galaxies[j])
             }
         }
         sum
@@ -88,7 +87,7 @@ impl std::fmt::Debug for Image {
         let mut s = String::new();
         for x in 0..self.bound.0 {
             for y in 0..self.bound.1 {
-                if self.galaxies.contains(&(x, y)) {
+                if self.raw[x][y] {
                     s.push('#');
                 } else {
                     s.push('.');
@@ -101,48 +100,37 @@ impl std::fmt::Debug for Image {
 }
 
 fn parse_input<T: AsRef<str>>(input: T) -> Image {
-    let galaxies: Vec<_> = input
+    let image: Vec<_> = input
         .as_ref()
         .lines()
         .filter(|l| !l.trim().is_empty())
         .enumerate()
-        .flat_map(|(x, l)| {
+        .map(|(_, l)| {
             l.trim()
                 .chars()
                 .enumerate()
-                .filter(|(_, c)| c == &'#')
-                .map(move |(y, _)| (x as isize, y as isize))
+                .map(move |(_, c)| c == '#')
+                .collect::<Vec<_>>()
         })
         .collect();
 
-    let bound = (
-        (galaxies.iter().max_by_key(|c| c.0).unwrap()).0 + 1,
-        (galaxies.iter().max_by_key(|c| c.1).unwrap()).1 + 1,
-    );
-
-    Image { galaxies, bound }
+    Image::new(image)
 }
 
-fn shortest_path_sum_with_expansion(image: &Image, expansion_rate: isize) -> isize {
-    let mut image = image.clone();
-    image.expansion(expansion_rate);
-    image.shortest_path_sum()
-}
-
-fn part1(image: &Image) -> Result<isize> {
+fn part1(image: &Image) -> Result<usize> {
     let _start = Instant::now();
 
-    let sum = shortest_path_sum_with_expansion(image, 2);
+    let sum = image.shortest_path_sum(2);
 
     writeln!(io::stdout(), "Part 1: {sum}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
     Ok(sum)
 }
 
-fn part2(image: &Image) -> Result<isize> {
+fn part2(image: &Image) -> Result<usize> {
     let _start = Instant::now();
 
-    let sum = shortest_path_sum_with_expansion(image, 1000000);
+    let sum = image.shortest_path_sum(1000000);
 
     writeln!(io::stdout(), "Part 2: {sum}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
@@ -175,8 +163,8 @@ fn example_input() {
     let image = parse_input(input);
     println!("{:?}", image);
     assert_eq!(part1(&image).unwrap(), 374);
-    assert_eq!(shortest_path_sum_with_expansion(&image, 10), 1030);
-    assert_eq!(shortest_path_sum_with_expansion(&image, 100), 8410);
+    assert_eq!(image.shortest_path_sum(10), 1030);
+    assert_eq!(image.shortest_path_sum(100), 8410);
 }
 
 #[test]
