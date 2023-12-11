@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::time::Instant;
@@ -14,14 +13,14 @@ type Coord = (isize, isize);
 
 #[derive(Clone)]
 struct Image {
-    galaxies: HashSet<Coord>,
+    galaxies: Vec<Coord>,
     bound: Coord,
 }
 
 impl Image {
     fn expansion_rows(&mut self, expansion_rate: isize) {
         let mut empty_row = 0;
-        let mut expanded_galaxies = HashSet::new();
+        let mut expanded_galaxies = Vec::new();
         for x in 0..self.bound.0 {
             let mut flag = true;
             self.galaxies
@@ -29,7 +28,7 @@ impl Image {
                 .filter(|(i, _)| i == &x)
                 .for_each(|(_, j)| {
                     flag = false;
-                    expanded_galaxies.insert((x + empty_row * (expansion_rate - 1), *j));
+                    expanded_galaxies.push((x + empty_row * (expansion_rate - 1), *j));
                 });
             if flag {
                 empty_row += 1;
@@ -40,7 +39,7 @@ impl Image {
 
     fn expansion_columns(&mut self, expansion_rate: isize) {
         let mut empty_column = 0;
-        let mut expanded_galaxies = HashSet::new();
+        let mut expanded_galaxies = Vec::new();
         for y in 0..self.bound.1 {
             let mut flag = true;
             self.galaxies
@@ -48,7 +47,7 @@ impl Image {
                 .filter(|(_, j)| j == &y)
                 .for_each(|(i, _)| {
                     flag = false;
-                    expanded_galaxies.insert((*i, y + empty_column * (expansion_rate - 1)));
+                    expanded_galaxies.push((*i, y + empty_column * (expansion_rate - 1)));
                 });
             if flag {
                 empty_column += 1;
@@ -74,11 +73,10 @@ impl Image {
         fn dis(p1: &Coord, p2: &Coord) -> isize {
             (p1.0 - p2.0).abs() + (p1.1 - p2.1).abs()
         }
-        let galaxies: Vec<_> = self.galaxies.iter().collect();
         let mut sum = 0;
-        for i in 0..galaxies.len() {
-            for j in i + 1..galaxies.len() {
-                sum += dis(galaxies[i], galaxies[j])
+        for i in 0..self.galaxies.len() {
+            for j in i + 1..self.galaxies.len() {
+                sum += dis(&self.galaxies[i], &self.galaxies[j])
             }
         }
         sum
@@ -103,7 +101,7 @@ impl std::fmt::Debug for Image {
 }
 
 fn parse_input<T: AsRef<str>>(input: T) -> Image {
-    let galaxies: HashSet<_> = input
+    let galaxies: Vec<_> = input
         .as_ref()
         .lines()
         .filter(|l| !l.trim().is_empty())
