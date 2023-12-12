@@ -434,3 +434,17 @@ Advent of Code 2023
 **最短距离**：因为是网格，同时网格间并不存在任何阻碍，所以直接计算曼哈顿距离即可 $D=∣x1​−x2​∣+∣y1​−y2​∣$
 
 ****************性能优化****************：利用 `HashSet` 保存 `#` 的坐标，固然可以在查找时避免麻烦，但是在这个问题中完全没有必要，可以直接用 `Vec` 保存。
+
+## Day 12 (TODO)
+
+### **DFS with Cache [[code](https://github.com/livexia/advent-of-code-2023/blob/cb7133436a0e11be14d1e5a299024265af503ba6/aoc12/src/main.rs)] =** DP ?
+
+- https://old.reddit.com/r/adventofcode/comments/18ge41g/2023_day_12_solutions/kd0um89/
+
+ if springs[i] == ‘.’ dp[i] = dp[i - 1]
+
+if springs[i] ≠ ‘.’ count += 1
+
+### Rust @
+
+https://doc.rust-lang.org/book/ch18-03-pattern-syntax.html#-bindings
