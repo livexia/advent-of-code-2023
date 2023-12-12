@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::iter::once;
@@ -20,18 +21,18 @@ fn parse_input<T: AsRef<str>>(input: T) -> Vec<(Vec<char>, Vec<usize>)> {
                 .split(',')
                 .map(|n| n.trim().parse().unwrap())
                 .collect();
-            // println!("{:?}, {:?}", search_contiguos(&springs), counters);
             result.push((springs, counters));
         }
     }
     result
 }
 
-fn count_arrangement(curr_spring: char, springs: &[char], counters: &[usize]) -> usize {
-    // println!(
-    //     "{} {:?} {} {:?}",
-    //     curr_spring, springs, counters[0], counters
-    // );
+fn count_arrangement(
+    curr_spring: char,
+    springs: &[char],
+    counters: &[usize],
+    cache: &mut HashMap<(usize, usize), usize>,
+) -> usize {
     match curr_spring {
         '#' => {
             let remain = counters[0] - 1;
@@ -50,7 +51,7 @@ fn count_arrangement(curr_spring: char, springs: &[char], counters: &[usize]) ->
                 } else if counters.len() == 1 {
                     springs[remain + 1..].iter().all(|c| c != &'#') as usize
                 } else {
-                    count_arrangement('.', &springs[remain + 1..], &counters[1..])
+                    count_arrangement('.', &springs[remain + 1..], &counters[1..], cache)
                 }
             } else {
                 0
@@ -58,7 +59,7 @@ fn count_arrangement(curr_spring: char, springs: &[char], counters: &[usize]) ->
         }
         '.' => {
             if let Some(i) = (0..springs.len()).find(|&i| springs[i] != '.') {
-                count_arrangement(springs[i], &springs[i + 1..], counters)
+                count_arrangement(springs[i], &springs[i + 1..], counters, cache)
             } else if counters.is_empty() {
                 1
             } else {
@@ -66,23 +67,17 @@ fn count_arrangement(curr_spring: char, springs: &[char], counters: &[usize]) ->
             }
         }
         '?' => {
-            count_arrangement('#', springs, counters) + count_arrangement('.', springs, counters)
+            if let Some(&c) = cache.get(&(springs.len(), counters.len())) {
+                c
+            } else {
+                let c = count_arrangement('#', springs, counters, cache)
+                    + count_arrangement('.', springs, counters, cache);
+                cache.insert((springs.len(), counters.len()), c);
+                c
+            }
         }
         _ => unreachable!("Wrong spring record: {:?}", springs),
     }
-}
-
-fn part1(records: &[(Vec<char>, Vec<usize>)]) -> Result<usize> {
-    let _start = Instant::now();
-
-    let result = records
-        .iter()
-        .map(|(s, c)| count_arrangement(s[0], &s[1..], c))
-        .sum();
-
-    writeln!(io::stdout(), "Part 1: {result}")?;
-    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
-    Ok(result)
 }
 
 fn count_arrangement_with_unfold(springs: &[char], counters: &[usize], rate: usize) -> usize {
@@ -99,23 +94,29 @@ fn count_arrangement_with_unfold(springs: &[char], counters: &[usize], rate: usi
         .cycle()
         .take(counters.len() * rate)
         .collect();
-    count_arrangement(s[0], &s[1..], &c)
+    count_arrangement(s[0], &s[1..], &c, &mut HashMap::new())
+}
+
+fn part1(records: &[(Vec<char>, Vec<usize>)]) -> Result<usize> {
+    let _start = Instant::now();
+
+    let result = records
+        .iter()
+        .map(|(s, c)| count_arrangement_with_unfold(s, c, 1))
+        .sum();
+
+    writeln!(io::stdout(), "Part 1: {result}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+    Ok(result)
 }
 
 fn part2(records: &[(Vec<char>, Vec<usize>)]) -> Result<usize> {
     let _start = Instant::now();
 
-    let mut result = 0;
-    for (springs, counters) in records.iter() {
-        let r1 = count_arrangement_with_unfold(springs, counters, 1);
-        let r2 = count_arrangement_with_unfold(springs, counters, 2);
-        let r3 = count_arrangement_with_unfold(springs, counters, 3);
-        if r2 / r1 != r3 / r2 {
-            panic!("{r1} {r2} {r3}");
-        }
-        let scale = r2 / r1;
-        result += r1 * scale.pow(4);
-    }
+    let result = records
+        .iter()
+        .map(|(s, c)| count_arrangement_with_unfold(s, c, 5))
+        .sum();
 
     writeln!(io::stdout(), "Part 2: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
@@ -143,16 +144,11 @@ fn example_input() {
 ";
     let records = parse_input(input);
     let (s0, c0) = (vec!['#', '.', '#', '.', '#', '#', '#'], vec![1, 1, 3]);
-    assert_eq!(count_arrangement(s0[0], &s0[1..], &c0), 1);
+    assert_eq!(count_arrangement_with_unfold(&s0, &c0, 1), 1);
 
     let (s1, c1) = &records[5];
-    assert_eq!(count_arrangement(s1[0], &s1[1..], c1), 10);
+    assert_eq!(count_arrangement_with_unfold(s1, c1, 1), 10);
     assert_eq!(part1(&records).unwrap(), 21);
-    assert_eq!(part2(&records).unwrap(), 525152);
-
-    let input = ".#????????????????? 1,4,3,2,2";
-    let records = parse_input(input);
-    assert_eq!(part1(&records).unwrap(), 15);
     assert_eq!(part2(&records).unwrap(), 525152);
 }
 
@@ -161,5 +157,5 @@ fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let records = parse_input(input);
     assert_eq!(part1(&records).unwrap(), 7694);
-    assert_eq!(part2(&records).unwrap(), 525152);
+    assert_eq!(part2(&records).unwrap(), 5071883216318);
 }
