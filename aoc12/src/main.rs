@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::io::{self, Read, Write};
+use std::iter::once;
 use std::time::Instant;
 
 #[allow(unused_macros)]
@@ -91,13 +92,39 @@ fn part1(records: &[(Vec<char>, Vec<usize>)]) -> Result<usize> {
     Ok(result)
 }
 
+fn part2(records: &[(Vec<char>, Vec<usize>)]) -> Result<usize> {
+    let _start = Instant::now();
+
+    let mut result = 0;
+    for (springs, counters) in records {
+        let s: Vec<_> = springs
+            .iter()
+            .cloned()
+            .chain(once('?'))
+            .cycle()
+            .take(springs.len() * 5 + 4)
+            .collect();
+        let c: Vec<_> = counters
+            .iter()
+            .cloned()
+            .cycle()
+            .take(counters.len() * 5)
+            .collect();
+        result += count_arrangement(s[0], &s[1..], c[0], &c);
+    }
+
+    writeln!(io::stdout(), "Part 2: {result}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+    Ok(result)
+}
+
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
     let records = parse_input(input);
     part1(&records)?;
-    // part2()?;
+    part2(&records)?;
     Ok(())
 }
 
@@ -117,6 +144,7 @@ fn example_input() {
     let (s1, c1) = &records[5];
     assert_eq!(count_arrangement(s1[0], &s1[1..], c1[0], c1), 10);
     assert_eq!(part1(&records).unwrap(), 21);
+    assert_eq!(part2(&records).unwrap(), 525152);
 }
 
 #[test]
@@ -124,4 +152,5 @@ fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let records = parse_input(input);
     assert_eq!(part1(&records).unwrap(), 7694);
+    assert_eq!(part2(&records).unwrap(), 525152);
 }
