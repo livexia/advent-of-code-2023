@@ -33,50 +33,50 @@ fn count_arrangement(
     counters: &[usize],
     cache: &mut HashMap<(usize, usize), usize>,
 ) -> usize {
-    if let Some(&c) = cache.get(&(springs.len(), counters.len())) {
-        c
-    } else {
-        let c = match curr_spring {
-            '#' => {
-                let remain = counters[0] - 1;
-                if springs.len() < remain {
-                    return 0;
-                }
-                if springs[..remain].iter().all(|c| c == &'#' || c == &'?') {
-                    // skip ahead
-                    if remain == springs.len() {
-                        if counters.len() == 1 {
-                            return 1;
-                        }
-                        0
-                    } else if springs[remain] == '#' {
-                        0
-                    } else if counters.len() == 1 {
-                        springs[remain + 1..].iter().all(|c| c != &'#') as usize
-                    } else {
-                        count_arrangement('.', &springs[remain + 1..], &counters[1..], cache)
+    match curr_spring {
+        '#' => {
+            let remain = counters[0] - 1;
+            if springs.len() < remain {
+                return 0;
+            }
+            if springs[..remain].iter().all(|c| c == &'#' || c == &'?') {
+                // skip ahead
+                if remain == springs.len() {
+                    if counters.len() == 1 {
+                        return 1;
                     }
-                } else {
                     0
-                }
-            }
-            '.' => {
-                if let Some(i) = (0..springs.len()).find(|&i| springs[i] != '.') {
-                    count_arrangement(springs[i], &springs[i + 1..], counters, cache)
-                } else if counters.is_empty() {
-                    1
-                } else {
+                } else if springs[remain] == '#' {
                     0
+                } else if counters.len() == 1 {
+                    springs[remain + 1..].iter().all(|c| c != &'#') as usize
+                } else {
+                    count_arrangement('.', &springs[remain + 1..], &counters[1..], cache)
                 }
+            } else {
+                0
             }
-            '?' => {
-                count_arrangement('#', springs, counters, cache)
-                    + count_arrangement('.', springs, counters, cache)
+        }
+        '.' => {
+            if let Some(i) = (0..springs.len()).find(|&i| springs[i] != '.') {
+                count_arrangement(springs[i], &springs[i + 1..], counters, cache)
+            } else if counters.is_empty() {
+                1
+            } else {
+                0
             }
-            _ => unreachable!("Wrong spring record: {:?}", springs),
-        };
-        cache.insert((springs.len(), counters.len()), c);
-        c
+        }
+        '?' => {
+            if let Some(&c) = cache.get(&(springs.len(), counters.len())) {
+                c
+            } else {
+                let c = count_arrangement('#', springs, counters, cache)
+                    + count_arrangement('.', springs, counters, cache);
+                cache.insert((springs.len(), counters.len()), c);
+                c
+            }
+        }
+        _ => unreachable!("Wrong spring record: {:?}", springs),
     }
 }
 
