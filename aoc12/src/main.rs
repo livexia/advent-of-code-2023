@@ -13,67 +13,81 @@ type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 fn parse_input<T: AsRef<str>>(input: T) -> Vec<(Vec<char>, Vec<usize>)> {
     let mut result = vec![];
     for line in input.as_ref().lines().filter(|l| !l.trim().is_empty()) {
-        if let Some((springs, counters)) = line.trim().split_once(' ') {
-            let springs = springs.trim().chars().collect();
+        if let Some((raw_springs, counters)) = line.trim().split_once(' ') {
+            let springs = raw_springs.trim().chars().collect();
             let counters = counters
                 .trim()
                 .split(',')
                 .map(|n| n.trim().parse().unwrap())
                 .collect();
+            // println!("{:?}, {:?}", search_contiguos(&springs), counters);
             result.push((springs, counters));
         }
     }
     result
 }
 
-fn count_arrangement(
-    curr_spring: char,
-    springs: &[char],
-    curr_counter: usize,
-    counters: &[usize],
-) -> usize {
+fn search_contiguos(springs: &[char]) -> Vec<(usize, (usize, usize))> {
+    let mut result = vec![];
+    let mut count = 0;
+    let mut last_pos = 0;
+    for (i, c) in springs.iter().enumerate() {
+        if c == &'#' {
+            count += 1;
+            last_pos = i;
+        } else if count != 0 {
+            result.push((count, (last_pos, i)));
+            count = 0;
+        } else {
+            count = 0;
+        }
+    }
+    if count != 0 {
+        result.push((count, (last_pos, springs.len())));
+    }
+    result
+}
+
+fn count_arrangement(curr_spring: char, springs: &[char], counters: &[usize]) -> usize {
     // println!(
     //     "{} {:?} {} {:?}",
-    //     curr_spring, springs, curr_counter, counters
+    //     curr_spring, springs, counters[0], counters
     // );
     match curr_spring {
         '#' => {
-            if springs.is_empty() {
-                if counters.len() == 1 && curr_counter == 1 {
-                    return 1;
-                }
+            let remain = counters[0] - 1;
+            if springs.len() < remain {
                 return 0;
             }
-            if curr_counter == 0 {
-                // contiguous group is over, but cuurent is damage, this arrangement is impossible
-                0
+            if springs[..remain].iter().all(|c| c == &'#' || c == &'?') {
+                // skip ahead
+                if remain == springs.len() {
+                    if counters.len() == 1 {
+                        return 1;
+                    }
+                    0
+                } else if springs[remain] == '#' {
+                    0
+                } else if counters.len() == 1 {
+                    springs[remain + 1..].iter().all(|c| c != &'#') as usize
+                } else {
+                    count_arrangement('.', &springs[remain + 1..], &counters[1..])
+                }
             } else {
-                count_arrangement(springs[0], &springs[1..], curr_counter - 1, counters)
+                0
             }
         }
         '.' => {
-            if curr_counter != 0 {
-                // contiguous group is not over, but cuurent is operational
-                // this arrangement is impossible or contiguous is not yet start
-                if curr_counter != counters[0] || springs.is_empty() {
-                    return 0;
-                }
-                count_arrangement(springs[0], &springs[1..], curr_counter, counters)
-            } else if springs.is_empty() {
-                if counters.len() == 1 {
-                    1
-                } else {
-                    0
-                }
-            } else if counters.len() == 1 {
-                count_arrangement(springs[0], &springs[1..], 0, counters)
+            if let Some(i) = (0..springs.len()).find(|&i| springs[i] != '.') {
+                count_arrangement(springs[i], &springs[i + 1..], counters)
+            } else if counters.is_empty() {
+                1
             } else {
-                count_arrangement(springs[0], &springs[1..], counters[1], &counters[1..])
+                0
             }
         }
         '?' => {
-            count_arrangement('#', springs, curr_counter, counters)
-                + count_arrangement('.', springs, curr_counter, counters)
+            count_arrangement('#', springs, counters) + count_arrangement('.', springs, counters)
         }
         _ => unreachable!("Wrong spring record: {:?}", springs),
     }
@@ -84,7 +98,7 @@ fn part1(records: &[(Vec<char>, Vec<usize>)]) -> Result<usize> {
 
     let result = records
         .iter()
-        .map(|(s, c)| count_arrangement(s[0], &s[1..], c[0], c))
+        .map(|(s, c)| count_arrangement(s[0], &s[1..], c))
         .sum();
 
     writeln!(io::stdout(), "Part 1: {result}")?;
@@ -96,7 +110,7 @@ fn part2(records: &[(Vec<char>, Vec<usize>)]) -> Result<usize> {
     let _start = Instant::now();
 
     let mut result = 0;
-    for (springs, counters) in records {
+    for (i, (springs, counters)) in records.iter().enumerate() {
         let s: Vec<_> = springs
             .iter()
             .cloned()
@@ -110,7 +124,8 @@ fn part2(records: &[(Vec<char>, Vec<usize>)]) -> Result<usize> {
             .cycle()
             .take(counters.len() * 5)
             .collect();
-        result += count_arrangement(s[0], &s[1..], c[0], &c);
+        result += count_arrangement(s[0], &s[1..], &c);
+        println!("{}: {} time: {:?}", i, result, _start.elapsed());
     }
 
     writeln!(io::stdout(), "Part 2: {result}")?;
@@ -139,10 +154,10 @@ fn example_input() {
 ";
     let records = parse_input(input);
     let (s0, c0) = (vec!['#', '.', '#', '.', '#', '#', '#'], vec![1, 1, 3]);
-    assert_eq!(count_arrangement(s0[0], &s0[1..], c0[0], &c0), 1);
+    assert_eq!(count_arrangement(s0[0], &s0[1..], &c0), 1);
 
     let (s1, c1) = &records[5];
-    assert_eq!(count_arrangement(s1[0], &s1[1..], c1[0], c1), 10);
+    assert_eq!(count_arrangement(s1[0], &s1[1..], c1), 10);
     assert_eq!(part1(&records).unwrap(), 21);
     assert_eq!(part2(&records).unwrap(), 525152);
 }
