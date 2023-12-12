@@ -27,27 +27,6 @@ fn parse_input<T: AsRef<str>>(input: T) -> Vec<(Vec<char>, Vec<usize>)> {
     result
 }
 
-fn search_contiguos(springs: &[char]) -> Vec<(usize, (usize, usize))> {
-    let mut result = vec![];
-    let mut count = 0;
-    let mut last_pos = 0;
-    for (i, c) in springs.iter().enumerate() {
-        if c == &'#' {
-            count += 1;
-            last_pos = i;
-        } else if count != 0 {
-            result.push((count, (last_pos, i)));
-            count = 0;
-        } else {
-            count = 0;
-        }
-    }
-    if count != 0 {
-        result.push((count, (last_pos, springs.len())));
-    }
-    result
-}
-
 fn count_arrangement(curr_spring: char, springs: &[char], counters: &[usize]) -> usize {
     // println!(
     //     "{} {:?} {} {:?}",
@@ -106,26 +85,36 @@ fn part1(records: &[(Vec<char>, Vec<usize>)]) -> Result<usize> {
     Ok(result)
 }
 
+fn count_arrangement_with_unfold(springs: &[char], counters: &[usize], rate: usize) -> usize {
+    let s: Vec<_> = springs
+        .iter()
+        .cloned()
+        .chain(once('?'))
+        .cycle()
+        .take(springs.len() * rate + rate - 1)
+        .collect();
+    let c: Vec<_> = counters
+        .iter()
+        .cloned()
+        .cycle()
+        .take(counters.len() * rate)
+        .collect();
+    count_arrangement(s[0], &s[1..], &c)
+}
+
 fn part2(records: &[(Vec<char>, Vec<usize>)]) -> Result<usize> {
     let _start = Instant::now();
 
     let mut result = 0;
-    for (i, (springs, counters)) in records.iter().enumerate() {
-        let s: Vec<_> = springs
-            .iter()
-            .cloned()
-            .chain(once('?'))
-            .cycle()
-            .take(springs.len() * 5 + 4)
-            .collect();
-        let c: Vec<_> = counters
-            .iter()
-            .cloned()
-            .cycle()
-            .take(counters.len() * 5)
-            .collect();
-        result += count_arrangement(s[0], &s[1..], &c);
-        println!("{}: {} time: {:?}", i, result, _start.elapsed());
+    for (springs, counters) in records.iter() {
+        let r1 = count_arrangement_with_unfold(springs, counters, 1);
+        let r2 = count_arrangement_with_unfold(springs, counters, 2);
+        let r3 = count_arrangement_with_unfold(springs, counters, 3);
+        if r2 / r1 != r3 / r2 {
+            panic!("{r1} {r2} {r3}");
+        }
+        let scale = r2 / r1;
+        result += r1 * scale.pow(4);
     }
 
     writeln!(io::stdout(), "Part 2: {result}")?;
@@ -159,6 +148,11 @@ fn example_input() {
     let (s1, c1) = &records[5];
     assert_eq!(count_arrangement(s1[0], &s1[1..], c1), 10);
     assert_eq!(part1(&records).unwrap(), 21);
+    assert_eq!(part2(&records).unwrap(), 525152);
+
+    let input = ".#????????????????? 1,4,3,2,2";
+    let records = parse_input(input);
+    assert_eq!(part1(&records).unwrap(), 15);
     assert_eq!(part2(&records).unwrap(), 525152);
 }
 
