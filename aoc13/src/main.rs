@@ -38,51 +38,50 @@ fn transpose(note: &[Vec<char>]) -> Vec<Vec<char>> {
     new_note
 }
 
-fn search_reflection(line: &[char], possible: &mut [usize]) {
-    for (i, cnt) in possible.iter_mut().enumerate().filter(|(_, c)| c != &&0) {
-        if i == 0 {
-            continue;
-        }
-        let mut left = i - 1;
-        let mut right = i;
-        while line[left] == line[right] {
-            if left == 0 || right == line.len() - 1 {
-                break;
+fn search_reflection(note: &[Vec<char>], i: usize, smudge: bool) -> bool {
+    let smudge_cnt = smudge as usize;
+    let mut diff_cnt = 0;
+    let mut left = i - 1;
+    let mut right = i;
+    while right < note[0].len() {
+        for line in note {
+            if line[left] != line[right] {
+                diff_cnt += 1;
             }
-            left -= 1;
-            right += 1;
         }
-        if (right != line.len() - 1 && left != 0) || line[left] != line[right] {
-            *cnt = 0;
+        if left == 0 || right == note[0].len() - 1 || diff_cnt > smudge_cnt {
+            break;
         }
+        left -= 1;
+        right += 1;
     }
+
+    diff_cnt <= smudge_cnt
 }
 
-fn search_mirror(note: &[Vec<char>]) -> usize {
-    let mut possible: Vec<usize> = (0..note[0].len()).collect();
-    for row in note {
-        search_reflection(row, &mut possible);
-    }
-    let mut result = *possible.iter().max().unwrap();
-    if result != 0 {
-        return result;
-    }
-
-    let note = transpose(note);
-    let mut possible: Vec<usize> = (0..note[0].len()).collect();
-    for row in &note {
-        search_reflection(row, &mut possible);
-    }
-    result += *possible.iter().max().unwrap() * 100;
-    result
+fn search_mirror(note: &[Vec<char>], smudge: bool) -> Option<usize> {
+    let transpose_note = transpose(note);
+    (1..transpose_note[0].len())
+        .find(|&i| search_reflection(&transpose_note, i, smudge))
+        .map(|i| i * 100)
+        .or((1..note[0].len()).find(|&i| search_reflection(note, i, smudge)))
 }
 
 fn part1(notes: &[Vec<Vec<char>>]) -> Result<usize> {
     let _start = Instant::now();
 
-    let result = notes.iter().map(|n| search_mirror(n)).sum();
+    let result = notes.iter().map(|n| search_mirror(n, false).unwrap()).sum();
 
     writeln!(io::stdout(), "Part 1:{result}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+    Ok(result)
+}
+fn part2(notes: &[Vec<Vec<char>>]) -> Result<usize> {
+    let _start = Instant::now();
+
+    let result = notes.iter().map(|n| search_mirror(n, true).unwrap()).sum();
+
+    writeln!(io::stdout(), "Part 2:{result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
     Ok(result)
 }
@@ -93,7 +92,7 @@ fn main() -> Result<()> {
 
     let notes = parse_input(input);
     part1(&notes)?;
-    // part2()?;
+    part2(&notes)?;
     Ok(())
 }
 
@@ -116,6 +115,7 @@ fn example_input() {
 #....#..#";
     let notes = parse_input(input);
     assert_eq!(part1(&notes).unwrap(), 405);
+    assert_eq!(part2(&notes).unwrap(), 400);
     assert_eq!(1, 1);
 }
 
@@ -124,4 +124,5 @@ fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let notes = parse_input(input);
     assert_eq!(part1(&notes).unwrap(), 36448);
+    assert_eq!(part2(&notes).unwrap(), 36448);
 }
