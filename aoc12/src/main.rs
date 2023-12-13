@@ -125,10 +125,15 @@ fn count_arrangement_dp(springs: &[char], counters: &[usize]) -> usize {
         .unwrap()
         .0
         + 1;
+    // let length = springs.len();
     let mut dp = vec![0; length + 2];
     dp[0] = 1;
-    for (i, &c) in once(&'.').chain(springs[..length].iter()).enumerate() {
-        dp[i + 1] = (c != '#') as usize;
+    for (i, _) in once(&'.')
+        .chain(springs[..length].iter())
+        .take_while(|&&c| c != '#')
+        .enumerate()
+    {
+        dp[i + 1] = 1;
     }
     for &cnt in counters {
         let mut chunk = 0;
@@ -164,6 +169,36 @@ fn part1_dp(records: &[(Vec<char>, Vec<usize>)]) -> Result<usize> {
     Ok(result)
 }
 
+fn count_arrangement_dp_with_unfold(springs: &[char], counters: &[usize], rate: usize) -> usize {
+    let s: Vec<_> = springs
+        .iter()
+        .cloned()
+        .chain(once('?'))
+        .cycle()
+        .take(springs.len() * rate + rate - 1)
+        .collect();
+    let c: Vec<_> = counters
+        .iter()
+        .cloned()
+        .cycle()
+        .take(counters.len() * rate)
+        .collect();
+    count_arrangement_dp(&s, &c)
+}
+
+fn part2_dp(records: &[(Vec<char>, Vec<usize>)]) -> Result<usize> {
+    let _start = Instant::now();
+
+    let result = records
+        .iter()
+        .map(|(s, c)| count_arrangement_dp_with_unfold(s, c, 5))
+        .sum();
+
+    writeln!(io::stdout(), "Part 2: {result}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+    Ok(result)
+}
+
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
@@ -173,6 +208,7 @@ fn main() -> Result<()> {
     part2(&records)?;
 
     part1_dp(&records)?;
+    part2_dp(&records)?;
     Ok(())
 }
 
@@ -193,8 +229,6 @@ fn example_input() {
     assert_eq!(count_arrangement_with_unfold(s1, c1, 1), 10);
     assert_eq!(part1(&records).unwrap(), 21);
     assert_eq!(part2(&records).unwrap(), 525152);
-
-    assert_eq!(part1_dp(&records).unwrap(), 21);
 }
 
 #[test]
@@ -203,6 +237,26 @@ fn real_input() {
     let records = parse_input(input);
     assert_eq!(part1(&records).unwrap(), 7694);
     assert_eq!(part2(&records).unwrap(), 5071883216318);
+}
 
+#[test]
+fn example_input_dp() {
+    let input = "???.### 1,1,3
+.??..??...?##. 1,1,3
+?#?#?#?#?#?#?#? 1,3,1,6
+????.#...#... 4,1,1
+????.######..#####. 1,6,5
+?###???????? 3,2,1
+";
+    let records = parse_input(input);
+    assert_eq!(part1_dp(&records).unwrap(), 21);
+    assert_eq!(part2_dp(&records).unwrap(), 525152);
+}
+
+#[test]
+fn real_input_dp() {
+    let input = std::fs::read_to_string("input/input.txt").unwrap();
+    let records = parse_input(input);
     assert_eq!(part1_dp(&records).unwrap(), 7694);
+    assert_eq!(part2_dp(&records).unwrap(), 5071883216318);
 }
