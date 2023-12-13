@@ -56,15 +56,17 @@ fn search_reflection(note: &[Vec<char>], i: usize, smudge: bool) -> bool {
         right += 1;
     }
 
-    diff_cnt <= smudge_cnt
+    // eq instead of le because: "you discover that every mirror has exactly one smudge"
+    diff_cnt == smudge_cnt
 }
 
 fn search_mirror(note: &[Vec<char>], smudge: bool) -> Option<usize> {
     let transpose_note = transpose(note);
-    (1..transpose_note[0].len())
-        .find(|&i| search_reflection(&transpose_note, i, smudge))
-        .map(|i| i * 100)
-        .or((1..note[0].len()).find(|&i| search_reflection(note, i, smudge)))
+    (1..note[0].len())
+        .find(|&i| search_reflection(note, i, smudge))
+        .or((1..transpose_note[0].len())
+            .find(|&i| search_reflection(&transpose_note, i, smudge))
+            .map(|i| i * 100))
 }
 
 fn part1(notes: &[Vec<Vec<char>>]) -> Result<usize> {
@@ -124,5 +126,5 @@ fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let notes = parse_input(input);
     assert_eq!(part1(&notes).unwrap(), 36448);
-    assert_eq!(part2(&notes).unwrap(), 36448);
+    assert_eq!(part2(&notes).unwrap(), 35799);
 }
