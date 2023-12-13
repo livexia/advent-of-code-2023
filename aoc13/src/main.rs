@@ -10,11 +10,23 @@ macro_rules! err {
 
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 
-fn parse_input<T: AsRef<str>>(input: T) -> Vec<Vec<Vec<char>>> {
+fn parse_input<T: AsRef<str>>(input: T) -> Vec<(Vec<u32>, Vec<u32>)> {
     input
         .as_ref()
         .split("\n\n")
-        .map(|note| note.lines().map(|l| l.trim().chars().collect()).collect())
+        .map(|note| {
+            let (mut rows, mut cols) = (vec![], vec![]);
+            for line in note.lines() {
+                cols.resize(line.trim().len(), 0);
+                let mut row = 0;
+                for (j, c) in line.trim().chars().enumerate() {
+                    row = (row << 1) | ((c == '#') as u32);
+                    cols[j] = (cols[j] << 1) | ((c == '#') as u32);
+                }
+                rows.push(row);
+            }
+            (rows, cols)
+        })
         .collect()
 }
 
@@ -26,6 +38,7 @@ fn display_note(note: &[Vec<char>]) -> String {
         .collect()
 }
 
+#[allow(dead_code)]
 fn transpose(note: &[Vec<char>]) -> Vec<Vec<char>> {
     let mut new_note = vec![];
     for y in 0..note[0].len() {
@@ -38,38 +51,26 @@ fn transpose(note: &[Vec<char>]) -> Vec<Vec<char>> {
     new_note
 }
 
-fn search_reflection(note: &[Vec<char>], i: usize, smudge: bool) -> bool {
-    let smudge_cnt = smudge as usize;
-    let mut diff_cnt = 0;
-    let mut left = i - 1;
-    let mut right = i;
-    while right < note[0].len() {
-        for line in note {
-            if line[left] != line[right] {
-                diff_cnt += 1;
-            }
-        }
-        if left == 0 || right == note[0].len() - 1 || diff_cnt > smudge_cnt {
-            break;
-        }
-        left -= 1;
-        right += 1;
-    }
-
+fn search_reflection(note: &[u32], i: usize, smudge: bool) -> bool {
     // eq instead of le because: "you discover that every mirror has exactly one smudge"
-    diff_cnt == smudge_cnt
+    (0..i)
+        .rev()
+        .zip(i..note.len())
+        .map(|(i, j)| (note[i] ^ note[j]).count_ones())
+        .sum::<u32>()
+        == smudge as u32
 }
 
-fn search_mirror(note: &[Vec<char>], smudge: bool) -> Option<usize> {
-    let transpose_note = transpose(note);
-    (1..note[0].len())
-        .find(|&i| search_reflection(note, i, smudge))
-        .or((1..transpose_note[0].len())
-            .find(|&i| search_reflection(&transpose_note, i, smudge))
+fn search_mirror(note: &(Vec<u32>, Vec<u32>), smudge: bool) -> Option<usize> {
+    println!("{:0b}", note.0[0]);
+    (1..note.1.len())
+        .find(|&i| search_reflection(&note.1, i, smudge))
+        .or((1..note.0.len())
+            .find(|&i| search_reflection(&note.0, i, smudge))
             .map(|i| i * 100))
 }
 
-fn part1(notes: &[Vec<Vec<char>>]) -> Result<usize> {
+fn part1(notes: &[(Vec<u32>, Vec<u32>)]) -> Result<usize> {
     let _start = Instant::now();
 
     let result = notes.iter().map(|n| search_mirror(n, false).unwrap()).sum();
@@ -78,7 +79,7 @@ fn part1(notes: &[Vec<Vec<char>>]) -> Result<usize> {
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
     Ok(result)
 }
-fn part2(notes: &[Vec<Vec<char>>]) -> Result<usize> {
+fn part2(notes: &[(Vec<u32>, Vec<u32>)]) -> Result<usize> {
     let _start = Instant::now();
 
     let result = notes.iter().map(|n| search_mirror(n, true).unwrap()).sum();
