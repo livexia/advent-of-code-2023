@@ -36,18 +36,13 @@ fn count_arrangement(
     match curr_spring {
         '#' => {
             let remain = counters[0] - 1;
-            if springs.len() < remain {
-                return 0;
-            }
-            if springs[..remain].iter().all(|c| c == &'#' || c == &'?') {
+            if remain <= springs.len()
+                && springs[..remain].iter().all(|c| c != &'.')
+                && springs.get(remain) != Some(&'#')
+            {
                 // skip ahead
                 if remain == springs.len() {
-                    if counters.len() == 1 {
-                        return 1;
-                    }
-                    0
-                } else if springs[remain] == '#' {
-                    0
+                    (counters.len() == 1) as usize
                 } else if counters.len() == 1 {
                     springs[remain + 1..].iter().all(|c| c != &'#') as usize
                 } else {
@@ -60,8 +55,6 @@ fn count_arrangement(
         '.' => {
             if let Some(i) = (0..springs.len()).find(|&i| springs[i] != '.') {
                 count_arrangement(springs[i], &springs[i + 1..], counters, cache)
-            } else if counters.is_empty() {
-                1
             } else {
                 0
             }
