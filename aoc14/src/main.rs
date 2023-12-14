@@ -133,12 +133,11 @@ fn part2(platform: Vec<Vec<char>>) -> Result<usize> {
         cycle_length += 1;
     }
 
-    let dest = (1_000_000_000 - cycle_start) % cycle_length + cycle_start;
+    let remain_spin = (1_000_000_000 - cycle_start) % cycle_length;
 
-    let mut super_fast = platform.clone();
-    spin(&mut super_fast, dest);
+    spin(&mut slow, remain_spin);
 
-    let result = calc(&super_fast);
+    let result = calc(&slow);
     writeln!(io::stdout(), "Part 2: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
     Ok(result)
