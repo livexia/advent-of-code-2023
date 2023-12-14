@@ -12,93 +12,68 @@ type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 fn parse_input<T: AsRef<str>>(input: T) -> Vec<Vec<char>> {
     input
         .as_ref()
-        .trim()
         .split_whitespace()
         .map(|l| l.chars().collect())
         .collect()
 }
 
-fn roll_west(platform: &mut [Vec<char>]) {
-    for j in 1..platform[0].len() {
-        for i in 0..platform.len() {
-            if platform[i][j] != 'O' {
-                continue;
-            }
-            let mut n_j = j - 1;
-            while platform[i][n_j] == '.' {
-                platform[i][n_j + 1] = '.';
-                platform[i][n_j] = 'O';
-                if n_j == 0 {
-                    break;
-                }
-                n_j -= 1;
-            }
-        }
-    }
+#[derive(Debug, Clone, Copy)]
+enum Direction {
+    North,
+    South,
+    West,
+    East,
 }
-fn roll_east(platform: &mut [Vec<char>]) {
-    for j in (0..platform[0].len() - 1).rev() {
-        for i in 0..platform.len() {
-            if platform[i][j] != 'O' {
-                continue;
-            }
-            let mut n_j = j + 1;
-            while platform[i][n_j] == '.' {
-                platform[i][n_j - 1] = '.';
-                platform[i][n_j] = 'O';
-                if n_j == platform[0].len() - 1 {
-                    break;
-                }
-                n_j += 1;
-            }
-        }
+
+fn next_pos(pos: (usize, usize), dir: Direction) -> Option<(usize, usize)> {
+    match dir {
+        Direction::North => pos.0.checked_sub(1).map(|i| (i, pos.1)),
+        Direction::South => Some((pos.0 + 1, pos.1)),
+        Direction::West => pos.1.checked_sub(1).map(|j| (pos.0, j)),
+        Direction::East => Some((pos.0, pos.1 + 1)),
     }
 }
 
-fn roll_south(platform: &mut [Vec<char>]) {
-    for i in (0..platform.len() - 1).rev() {
-        for j in 0..platform[0].len() {
+fn roll(platform: &mut [Vec<char>], dir: Direction) {
+    let (height, width) = (platform.len(), platform[0].len());
+    let (rows, columns): (Vec<_>, Vec<_>) = match dir {
+        Direction::North => ((1..height).collect(), (0..width).collect()),
+        Direction::South => ((0..height - 1).rev().collect(), (0..width).collect()),
+        Direction::West => ((0..height).collect(), (1..width).collect()),
+        Direction::East => ((0..height).collect(), (0..width - 1).rev().collect()),
+    };
+    for &i in &rows {
+        for &j in &columns {
             if platform[i][j] != 'O' {
                 continue;
             }
-            let mut n_i = i + 1;
-            while platform[n_i][j] == '.' {
-                platform[n_i - 1][j] = '.';
-                platform[n_i][j] = 'O';
-                if n_i == platform.len() - 1 {
-                    break;
-                }
-                n_i += 1;
-            }
-        }
-    }
-}
 
-fn roll_north(platform: &mut [Vec<char>]) {
-    for i in 1..platform.len() {
-        for j in 0..platform[0].len() {
-            if platform[i][j] != 'O' {
-                continue;
-            }
-            let mut n_i = i - 1;
-            while platform[n_i][j] == '.' {
-                platform[n_i + 1][j] = '.';
-                platform[n_i][j] = 'O';
-                if n_i == 0 {
-                    break;
+            let mut prev = (i, j);
+            let mut curr = next_pos((i, j), dir).unwrap();
+
+            while platform[curr.0][curr.1] == '.' {
+                platform[prev.0][prev.1] = '.';
+                platform[curr.0][curr.1] = 'O';
+                if let Some(temp) = next_pos(curr, dir) {
+                    if temp.0 < height && temp.1 < width {
+                        prev = curr;
+                        curr = temp;
+                        continue;
+                    }
                 }
-                n_i -= 1;
+                break;
             }
         }
     }
 }
 
 fn spin(platform: &mut [Vec<char>], cycle: usize) {
+    use Direction::*;
     for _ in 0..cycle {
-        roll_north(platform);
-        roll_west(platform);
-        roll_south(platform);
-        roll_east(platform);
+        roll(platform, North);
+        roll(platform, West);
+        roll(platform, South);
+        roll(platform, East);
     }
 }
 
@@ -114,7 +89,7 @@ fn calc(platform: &[Vec<char>]) -> usize {
 fn part1(mut platform: Vec<Vec<char>>) -> Result<usize> {
     let _start = Instant::now();
 
-    roll_north(&mut platform);
+    roll(&mut platform, Direction::North);
 
     let result = calc(&platform);
     writeln!(io::stdout(), "Part 1: {result}")?;
