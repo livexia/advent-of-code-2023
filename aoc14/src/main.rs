@@ -17,63 +17,72 @@ fn parse_input<T: AsRef<str>>(input: T) -> Vec<Vec<char>> {
         .collect()
 }
 
-#[derive(Debug, Clone, Copy)]
-enum Direction {
-    North,
-    South,
-    West,
-    East,
-}
-
-fn next_pos(pos: (usize, usize), dir: Direction) -> Option<(usize, usize)> {
-    match dir {
-        Direction::North => pos.0.checked_sub(1).map(|i| (i, pos.1)),
-        Direction::South => Some((pos.0 + 1, pos.1)),
-        Direction::West => pos.1.checked_sub(1).map(|j| (pos.0, j)),
-        Direction::East => Some((pos.0, pos.1 + 1)),
+fn tilt_west(platform: &mut [Vec<char>]) {
+    for i in 0..platform.len() {
+        let mut last_possible = 0;
+        for j in 0..platform[0].len() {
+            if platform[i][j] == '#' {
+                last_possible = j + 1;
+            } else if platform[i][j] == 'O' {
+                platform[i][j] = '.';
+                platform[i][last_possible] = 'O';
+                last_possible += 1;
+            }
+        }
     }
 }
 
-fn roll(platform: &mut [Vec<char>], dir: Direction) {
-    let (height, width) = (platform.len(), platform[0].len());
-    let (rows, columns): (Vec<_>, Vec<_>) = match dir {
-        Direction::North => ((1..height).collect(), (0..width).collect()),
-        Direction::South => ((0..height - 1).rev().collect(), (0..width).collect()),
-        Direction::West => ((0..height).collect(), (1..width).collect()),
-        Direction::East => ((0..height).collect(), (0..width - 1).rev().collect()),
-    };
-    for &i in &rows {
-        for &j in &columns {
-            if platform[i][j] != 'O' {
-                continue;
+fn tilt_east(platform: &mut [Vec<char>]) {
+    for i in 0..platform.len() {
+        let mut last_possible = platform[0].len() - 1;
+        for j in (0..platform[0].len()).rev() {
+            if platform[i][j] == '#' {
+                last_possible = j.saturating_sub(1);
+            } else if platform[i][j] == 'O' {
+                platform[i][j] = '.';
+                platform[i][last_possible] = 'O';
+                last_possible = last_possible.saturating_sub(1);
             }
+        }
+    }
+}
 
-            let mut prev = (i, j);
-            let mut curr = next_pos((i, j), dir).unwrap();
+fn tilt_north(platform: &mut [Vec<char>]) {
+    for j in 0..platform[0].len() {
+        let mut last_possible = 0;
+        for i in 0..platform.len() {
+            if platform[i][j] == '#' {
+                last_possible = i + 1;
+            } else if platform[i][j] == 'O' {
+                platform[i][j] = '.';
+                platform[last_possible][j] = 'O';
+                last_possible += 1;
+            }
+        }
+    }
+}
 
-            while platform[curr.0][curr.1] == '.' {
-                platform[prev.0][prev.1] = '.';
-                platform[curr.0][curr.1] = 'O';
-                if let Some(temp) = next_pos(curr, dir) {
-                    if temp.0 < height && temp.1 < width {
-                        prev = curr;
-                        curr = temp;
-                        continue;
-                    }
-                }
-                break;
+fn tilt_south(platform: &mut [Vec<char>]) {
+    for j in 0..platform[0].len() {
+        let mut last_possible = platform.len() - 1;
+        for i in (0..platform.len()).rev() {
+            if platform[i][j] == '#' {
+                last_possible = i.saturating_sub(1);
+            } else if platform[i][j] == 'O' {
+                platform[i][j] = '.';
+                platform[last_possible][j] = 'O';
+                last_possible = last_possible.saturating_sub(1);
             }
         }
     }
 }
 
 fn spin(platform: &mut [Vec<char>], cycle: usize) {
-    use Direction::*;
     for _ in 0..cycle {
-        roll(platform, North);
-        roll(platform, West);
-        roll(platform, South);
-        roll(platform, East);
+        tilt_north(platform);
+        tilt_west(platform);
+        tilt_south(platform);
+        tilt_east(platform);
     }
 }
 
@@ -89,8 +98,7 @@ fn calc(platform: &[Vec<char>]) -> usize {
 fn part1(mut platform: Vec<Vec<char>>) -> Result<usize> {
     let _start = Instant::now();
 
-    roll(&mut platform, Direction::North);
-
+    tilt_north(&mut platform);
     let result = calc(&platform);
     writeln!(io::stdout(), "Part 1: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
