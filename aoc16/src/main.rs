@@ -95,9 +95,9 @@ fn bfs(start_pos: Coord, dir: Direction, grid: &Grid) -> usize {
         queue.push_back((start_pos, d));
     }
 
-    let mut visited = HashSet::new();
+    let mut visited = HashSet::with_capacity(20_000);
 
-    let mut energized = HashSet::new();
+    let mut energized = HashSet::with_capacity(10_000);
 
     while let Some((pos, dir)) = queue.pop_front() {
         energized.insert(pos);
