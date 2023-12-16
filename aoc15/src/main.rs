@@ -41,7 +41,6 @@ fn step_to_instr(step: &[u8]) -> (usize, usize, Option<usize>) {
     (k, label, v)
 }
 
-// BTreeMap
 fn part2(steps: &[Vec<u8>]) -> Result<usize> {
     let _start = Instant::now();
 
