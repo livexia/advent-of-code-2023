@@ -101,9 +101,9 @@ fn bfs(start_pos: Coord, dir: Direction, grid: &Grid) -> usize {
 
     while let Some((pos, dir)) = queue.pop_front() {
         energized.insert(pos);
-        if visited.insert((pos, dir)) {
-            if let Some((next, dirs)) = bounce(pos, dir, grid) {
-                for n_d in dirs {
+        if let Some((next, dirs)) = bounce(pos, dir, grid) {
+            for n_d in dirs {
+                if visited.insert((pos, dir)) {
                     queue.push_back((next, n_d));
                 }
             }
@@ -128,9 +128,6 @@ fn part2(grid: &Grid) -> Result<usize> {
     let mut result = 0;
     for y in 0..grid[0].len() {
         result = result.max(bfs((0, y as isize), Direction::Down, grid));
-    }
-
-    for y in 0..grid[0].len() {
         result = result.max(bfs(
             (grid.len() as isize - 1, y as isize),
             Direction::Up,
@@ -140,9 +137,6 @@ fn part2(grid: &Grid) -> Result<usize> {
 
     for x in 0..grid.len() {
         result = result.max(bfs((x as isize, 0), Direction::Right, grid));
-    }
-
-    for x in 0..grid.len() {
         result = result.max(bfs(
             (x as isize, grid[0].len() as isize - 1),
             Direction::Left,
