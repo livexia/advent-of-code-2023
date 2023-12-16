@@ -78,17 +78,7 @@ fn valid_pos(pos: &Coord, grid: &Grid) -> bool {
 }
 
 fn bounce(pos: Coord, dir: Direction, grid: &Grid) -> Option<(Coord, Vec<Direction>)> {
-    let next_pos = if pos.0 == -1 {
-        (0, pos.1)
-    } else if pos.1 == -1 {
-        (pos.0, 0)
-    } else if pos.0 == grid.len() as isize {
-        (grid.len() as isize - 1, pos.1)
-    } else if pos.1 == grid[0].len() as isize {
-        (pos.0, grid[0].len() as isize - 1)
-    } else {
-        dir.next_pos(pos)
-    };
+    let next_pos = dir.next_pos(pos);
     if !valid_pos(&next_pos, grid) {
         return None;
     }
@@ -99,7 +89,11 @@ fn bounce(pos: Coord, dir: Direction, grid: &Grid) -> Option<(Coord, Vec<Directi
 
 fn bfs(start_pos: Coord, dir: Direction, grid: &Grid) -> usize {
     let mut queue = VecDeque::new();
-    queue.push_back((start_pos, dir));
+
+    let next_dirs = dir.turn(grid[start_pos.0 as usize][start_pos.1 as usize]);
+    for d in next_dirs {
+        queue.push_back((start_pos, d));
+    }
 
     let mut visited = HashSet::new();
 
@@ -115,13 +109,13 @@ fn bfs(start_pos: Coord, dir: Direction, grid: &Grid) -> usize {
             }
         }
     }
-    energized.len() - 1
+    energized.len()
 }
 
 fn part1(grid: &Grid) -> Result<usize> {
     let _start = Instant::now();
 
-    let result = bfs((-1, 0), Direction::Right, grid);
+    let result = bfs((0, 0), Direction::Right, grid);
 
     writeln!(io::stdout(), "Part 1: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
@@ -133,20 +127,24 @@ fn part2(grid: &Grid) -> Result<usize> {
 
     let mut result = 0;
     for y in 0..grid[0].len() {
-        result = result.max(bfs((-1, y as isize), Direction::Down, grid));
+        result = result.max(bfs((0, y as isize), Direction::Down, grid));
     }
 
     for y in 0..grid[0].len() {
-        result = result.max(bfs((grid.len() as isize, y as isize), Direction::Up, grid));
+        result = result.max(bfs(
+            (grid.len() as isize - 1, y as isize),
+            Direction::Up,
+            grid,
+        ));
     }
 
     for x in 0..grid.len() {
-        result = result.max(bfs((x as isize, -1), Direction::Right, grid));
+        result = result.max(bfs((x as isize, 0), Direction::Right, grid));
     }
 
     for x in 0..grid.len() {
         result = result.max(bfs(
-            (x as isize, grid[0].len() as isize),
+            (x as isize, grid[0].len() as isize - 1),
             Direction::Left,
             grid,
         ));
