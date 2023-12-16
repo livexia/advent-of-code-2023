@@ -103,7 +103,7 @@ fn bfs(start_pos: Coord, dir: Direction, grid: &Grid) -> usize {
         energized.insert(pos);
         if let Some((next, dirs)) = bounce(pos, dir, grid) {
             for n_d in dirs {
-                if visited.insert((pos, dir)) {
+                if visited.insert((next, n_d)) {
                     queue.push_back((next, n_d));
                 }
             }
