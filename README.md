@@ -538,6 +538,62 @@ https://doc.rust-lang.org/book/ch18-03-pattern-syntax.html#-bindings
         - 某种程度上而言，这又是二维？
 - 也许可以优化环检测中的状态对比？当前是直接比较两个 Vec ，好在 Vec 并不大
 
+## Day 15
+
+第一部分需要实现哈希，第二部分则需要实现类似于哈希表。第一部分按照题意实现即可，第二部分的题意有点复杂，但是理解题意之后其实也是很简单的。输入的数据量也不大，直接实现即可。第一部分不需要说明，简单说明第二部分：
+
+- 输入字符串由逗号隔开分成一个一个部分
+- 每一个部分由两到三个部分组成，初始连续的字符为镜头的标识符 `label`
+- 紧接着是 `=` 或 `-`
+    - `=` 对应增加或更新操作
+    - `-` 对应删操作
+- focal length 在最后的结果计算中需要
+- 将每个部分的字符串转为 `ascii` 码，然后进行分割，分割实现如下：
+    - 直接根据是否能够从中解析出 focal length 来确定当前操作是 `=` 还是 `-`
+    
+    ```rust
+    fn step_to_instr(step: &[u8]) -> (usize, usize, Option<usize>) {
+        let i = step.iter().position(|&c| c == b'=' || c == b'-').unwrap();
+        let k = hash(&step[..i]);
+        let v = step.get(i + 1).map(|n| (n - b'0') as usize);
+        assert!(i <= 8); // usize is u64, max lable length is 8
+        let label = step[..i].iter().fold(0, |l, &b| l * 256 + b as usize);
+        (k, label, v)
+    }
+    ```
+    
+- `label` 字符串的哈希值表示当前镜头需要放置哪一个 `box`
+- `=` 之后还有一个数字，表示镜头的 focal length
+    - `=` 代表需要将对应镜头和对应的 focal length值放到对应的 `box` 中
+        - 如果对应镜已经存在，那么修改原有 focal length 为新的值
+        - 如果不存在则将当前镜头放置到最末端
+- `-` 之后则什么都没有
+    - `-` 表示需要从对应的 `box` 中移除对应镜头
+- 用二维 `Vec<Vec<(label, focal legth)>>` 表示所有的 `box` 和其中的镜头
+- 我的实现中 `label` 的数据类型是 `usize` ，避免了构造 String 但是同样的镜头标识长度不能超过 8 。`let label = step[..i].iter().fold(0, |l, &b| l * 256 + b as usize);`
+- 利用 position 确定当前镜头标识是否已经在 box 中，如果在取得索引值，再根距对应的 `=` 和 `-` 进行更新
+
+部分处理代码如下：
+
+```rust
+let mut map = vec![vec![]; 256];
+
+for step in steps {
+    let (k, l, v) = step_to_instr(step);
+    let p = map[k].iter().position(|(i, _)| i == &l);
+    match (v, p) {
+        (Some(f), None) => map[k].push((l, f)),
+        (Some(f), Some(i)) => {
+            map[k][i] = (l, f);
+        }
+        (None, Some(i)) => {
+            map[k].remove(i);
+        }
+        _ => (),
+    }
+}
+```
+
 ## Day 16
 
 今天的问题并不难，光线按照方向移动，根据新位置处可能的镜子调整移动方向，计算光线移动的路径，除了方向的改变，光线在遇到特定的镜子时还会产生分裂，我通过利用 BFS 实现了第一部分。第二部分是在第一部分之上计算从四周发出光线，每个位置发出光线移动路径的最大值。唯一需要注意的点就是光线的起始点，如果光线在起始点就遇到了镜子，那就需要根据镜子先调整方向。这点可以通过在平台外设置一个虚拟的起点解决，也可以首先对起点和起点处的镜子计算下一个可能的方向。代码的实现很简单，可是性能却并不好，第二部分主要的运行时间都是在 BFS 中对当前状态的访问情况进行检查上，而我在尝试提升性能时引入了错误的逻辑，导致性能提升，但是结果错误。
