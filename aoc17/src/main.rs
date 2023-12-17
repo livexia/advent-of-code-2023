@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::time::Instant;
@@ -62,9 +62,10 @@ fn next_nth(curr: Coord, dir: u8, step: usize, map: &[Vec<u8>]) -> Option<(Coord
 }
 
 #[allow(dead_code)]
-fn bfs(start: Coord, map: &[Vec<u8>], min_step: usize, max_step: usize) -> usize {
+fn bfs(map: &[Vec<u8>], min_step: usize, max_step: usize) -> usize {
     let bound = (map.len() as isize, map[0].len() as isize);
 
+    let start = (0, 0);
     let mut queue = VecDeque::new();
     queue.push_back((start, RIGHT, 0));
     queue.push_back((start, DOWN, 0));
@@ -139,19 +140,76 @@ fn part1(map: &[Vec<u8>]) -> Result<usize> {
 
     // let result = dfs((0, 0), RIGHT, map, &mut HashSet::new()).unwrap_or(usize::MAX);
     // let result = result.min(dfs((0, 0), DOWN, map, &mut HashSet::new()).unwrap_or(usize::MAX));
-    let result = bfs((0, 0), map, 1, 3);
+    let result = bfs(map, 1, 3);
 
     writeln!(io::stdout(), "Part 1: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
 
     Ok(result)
 }
+
 fn part2(map: &[Vec<u8>]) -> Result<usize> {
     let _start = Instant::now();
 
-    let result = bfs((0, 0), map, 4, 10);
+    let result = bfs(map, 4, 10);
 
     writeln!(io::stdout(), "Part 2: {result}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+
+    Ok(result)
+}
+
+fn dijkstra_shortest_path(map: &[Vec<u8>], min_step: usize, max_step: usize) -> usize {
+    let start = (0, 0);
+    let bound = (map.len() as isize, map[0].len() as isize);
+    let mut dist = HashMap::new();
+    dist.insert((start, RIGHT), 0);
+    dist.insert((start, DOWN), 0);
+
+    let mut queue = BinaryHeap::new();
+    queue.push((0, start, RIGHT));
+    queue.push((0, start, DOWN));
+
+    let mut visited = HashSet::new();
+
+    let mut result = usize::MAX;
+    while let Some((loss, pos, dir)) = queue.pop() {
+        if pos == (bound.0 - 1, bound.1 - 1) {
+            result = result.min((-loss) as usize);
+        }
+        if visited.insert((pos, dir)) {
+            for i in min_step..=max_step {
+                if let Some((next, next_loss)) = next_nth(pos, dir, i, map) {
+                    let alt = dist[&(pos, dir)] + next_loss as isize;
+                    for nd in [turn_left(dir), turn_right(dir)] {
+                        let total_loss = dist.entry((next, nd)).or_insert(isize::MAX);
+                        *total_loss = (*total_loss).min(alt);
+                        queue.push((-(*total_loss), next, nd));
+                    }
+                }
+            }
+        }
+    }
+    result
+}
+
+fn part1_dijkstra(map: &[Vec<u8>]) -> Result<usize> {
+    let _start = Instant::now();
+
+    let result = dijkstra_shortest_path(map, 1, 3);
+
+    writeln!(io::stdout(), "Part 1 with dijkstra's algorithm: {result}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+
+    Ok(result)
+}
+
+fn part2_dijkstra(map: &[Vec<u8>]) -> Result<usize> {
+    let _start = Instant::now();
+
+    let result = dijkstra_shortest_path(map, 4, 10);
+
+    writeln!(io::stdout(), "Part 2 with dijkstra's algorithm: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
 
     Ok(result)
@@ -162,6 +220,10 @@ fn main() -> Result<()> {
     io::stdin().read_to_string(&mut input)?;
 
     let map = parse_input(input);
+
+    part1_dijkstra(&map)?;
+    part2_dijkstra(&map)?;
+
     part1(&map)?;
     part2(&map)?;
     Ok(())
@@ -172,12 +234,14 @@ fn simple_input() {
 11111";
     let map = parse_input(input);
     assert_eq!(part1(&map).unwrap(), 13);
+    assert_eq!(part1_dijkstra(&map).unwrap(), 13);
 
     let input = "11119999
 99911199
 99999111";
     let map = parse_input(input);
     assert_eq!(part1(&map).unwrap(), 9);
+    assert_eq!(part1_dijkstra(&map).unwrap(), 9);
 }
 
 #[test]
@@ -198,6 +262,9 @@ fn example_input() {
     let map = parse_input(input);
     assert_eq!(part1(&map).unwrap(), 102);
     assert_eq!(part2(&map).unwrap(), 94);
+
+    assert_eq!(part1_dijkstra(&map).unwrap(), 102);
+    assert_eq!(part2_dijkstra(&map).unwrap(), 94);
 }
 
 #[test]
@@ -209,12 +276,16 @@ fn example_input2() {
 999999999991";
     let map = parse_input(input);
     assert_eq!(part2(&map).unwrap(), 71);
+    assert_eq!(part2_dijkstra(&map).unwrap(), 71);
 }
 
 #[test]
 fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let map = parse_input(input);
-    assert_eq!(part1(&map).unwrap(), 674);
-    assert_eq!(part2(&map).unwrap(), 674);
+    // assert_eq!(part1(&map).unwrap(), 674);
+    // assert_eq!(part2(&map).unwrap(), 773);
+
+    assert_eq!(part1_dijkstra(&map).unwrap(), 674);
+    assert_eq!(part2_dijkstra(&map).unwrap(), 773);
 }
