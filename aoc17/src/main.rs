@@ -1,4 +1,4 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::time::Instant;
@@ -55,63 +55,70 @@ fn next_nth(curr: Coord, dir: u8, step: usize, map: &[Vec<u8>]) -> Option<(Coord
 }
 
 #[allow(dead_code)]
-// Wrong Code
-fn bfs(start: Coord, map: &[Vec<u8>]) -> usize {
+fn bfs(start: Coord, map: &[Vec<u8>], min_step: usize, max_step: usize) -> usize {
     let bound = (map.len() as isize, map[0].len() as isize);
 
     let mut queue = VecDeque::new();
     queue.push_back((start, RIGHT, 0));
     queue.push_back((start, DOWN, 0));
 
-    let mut visited = HashSet::new();
+    let mut min_loss = HashMap::new();
 
     let mut result = usize::MAX;
     while let Some((pos, dir, loss)) = queue.pop_front() {
-        if pos == (1, 3) || pos == (1, 5) {
-            println!("{loss}");
-        }
         if pos.0 == bound.0 - 1 && pos.1 == bound.1 - 1 {
             result = result.min(loss);
             continue;
         }
-        // println!("{pos:?} {dir}-> ");
-        for i in 1..=3 {
+        for i in min_step..=max_step {
             if let Some((next, next_loss)) = next_nth(pos, dir, i, map) {
                 for nd in [turn_left(dir), turn_right(dir)] {
-                    // print!("{next:?}, {nd} ");
-                    if visited.insert((next, nd)) {
+                    if let Some(p_l) = min_loss.get(&(next, nd)) {
+                        if *p_l <= loss + next_loss {
+                            continue;
+                        }
+                    }
+                    min_loss.insert((next, nd), loss + next_loss);
+                    if loss + next_loss < result {
                         queue.push_back((next, nd, loss + next_loss))
                     }
                 }
+            } else {
+                break;
             }
         }
-        // println!()
     }
     result
 }
 
+#[allow(dead_code)]
 fn dfs(
     start: Coord,
     dir: u8,
     map: &[Vec<u8>],
-    visited: &mut HashSet<(Coord, u8)>,
+    visited: &mut HashSet<Coord>,
+    min_step: usize,
+    max_step: usize,
 ) -> Option<usize> {
     let bound = (map.len() as isize, map[0].len() as isize);
     if start == (bound.0 - 1, bound.1 - 1) {
         Some(0)
     } else {
-        if visited.insert((start, dir)) {
+        if visited.insert(start) {
             let mut result = usize::MAX;
-            for i in 1..=3 {
+            for i in min_step..=max_step {
                 if let Some((next, next_loss)) = next_nth(start, dir, i, map) {
+                    if next_loss >= result {
+                        break;
+                    }
                     for nd in [turn_left(dir), turn_right(dir)] {
-                        if let Some(remain_loss) = dfs(next, nd, map, visited) {
+                        if let Some(remain_loss) = dfs(next, nd, map, visited, min_step, max_step) {
                             result = result.min(next_loss + remain_loss);
                         }
                     }
                 }
             }
-            visited.remove(&(start, dir));
+            visited.remove(&start);
             if result != usize::MAX {
                 return Some(result);
             }
@@ -123,10 +130,21 @@ fn dfs(
 fn part1(map: &[Vec<u8>]) -> Result<usize> {
     let _start = Instant::now();
 
-    let result = dfs((0, 0), RIGHT, map, &mut HashSet::new()).unwrap_or(usize::MAX);
-    let result = result.min(dfs((0, 0), DOWN, map, &mut HashSet::new()).unwrap_or(usize::MAX));
+    // let result = dfs((0, 0), RIGHT, map, &mut HashSet::new()).unwrap_or(usize::MAX);
+    // let result = result.min(dfs((0, 0), DOWN, map, &mut HashSet::new()).unwrap_or(usize::MAX));
+    let result = bfs((0, 0), map, 1, 3);
 
     writeln!(io::stdout(), "Part 1: {result}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+
+    Ok(result)
+}
+fn part2(map: &[Vec<u8>]) -> Result<usize> {
+    let _start = Instant::now();
+
+    let result = bfs((0, 0), map, 4, usize::MAX);
+
+    writeln!(io::stdout(), "Part 2: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
 
     Ok(result)
@@ -138,15 +156,15 @@ fn main() -> Result<()> {
 
     let map = parse_input(input);
     part1(&map)?;
-    // part2()?;
+    part2(&map)?;
     Ok(())
 }
 #[test]
 fn simple_input() {
-    let input = "1119
-1111";
+    let input = "19999
+11111";
     let map = parse_input(input);
-    assert_eq!(part1(&map).unwrap(), 4);
+    assert_eq!(part1(&map).unwrap(), 13);
 
     let input = "11119999
 99911199
@@ -172,11 +190,13 @@ fn example_input() {
 4322674655533";
     let map = parse_input(input);
     assert_eq!(part1(&map).unwrap(), 102);
+    assert_eq!(part2(&map).unwrap(), 94);
 }
 
 #[test]
 fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let map = parse_input(input);
-    assert_eq!(part1(&map).unwrap(), 102);
+    assert_eq!(part1(&map).unwrap(), 674);
+    assert_eq!(part2(&map).unwrap(), 674);
 }
