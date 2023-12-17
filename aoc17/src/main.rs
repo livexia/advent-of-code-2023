@@ -90,10 +90,41 @@ fn bfs(start: Coord, map: &[Vec<u8>]) -> usize {
     result
 }
 
+fn dfs(
+    start: Coord,
+    dir: u8,
+    map: &[Vec<u8>],
+    visited: &mut HashSet<(Coord, u8)>,
+) -> Option<usize> {
+    let bound = (map.len() as isize, map[0].len() as isize);
+    if start == (bound.0 - 1, bound.1 - 1) {
+        Some(0)
+    } else {
+        if visited.insert((start, dir)) {
+            let mut result = usize::MAX;
+            for i in 1..=3 {
+                if let Some((next, next_loss)) = next_nth(start, dir, i, map) {
+                    for nd in [turn_left(dir), turn_right(dir)] {
+                        if let Some(remain_loss) = dfs(next, nd, map, visited) {
+                            result = result.min(next_loss + remain_loss);
+                        }
+                    }
+                }
+            }
+            visited.remove(&(start, dir));
+            if result != usize::MAX {
+                return Some(result);
+            }
+        }
+        None
+    }
+}
+
 fn part1(map: &[Vec<u8>]) -> Result<usize> {
     let _start = Instant::now();
 
-    let result = bfs((0, 0), map);
+    let result = dfs((0, 0), RIGHT, map, &mut HashSet::new()).unwrap_or(usize::MAX);
+    let result = result.min(dfs((0, 0), DOWN, map, &mut HashSet::new()).unwrap_or(usize::MAX));
 
     writeln!(io::stdout(), "Part 1: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
@@ -112,6 +143,11 @@ fn main() -> Result<()> {
 }
 #[test]
 fn simple_input() {
+    let input = "1119
+1111";
+    let map = parse_input(input);
+    assert_eq!(part1(&map).unwrap(), 4);
+
     let input = "11119999
 99911199
 99999111";
