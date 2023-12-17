@@ -35,22 +35,29 @@ fn turn_right(dir: u8) -> u8 {
 
 fn next_nth(curr: Coord, dir: u8, step: usize, map: &[Vec<u8>]) -> Option<(Coord, usize)> {
     let bound = (map.len() as isize, map[0].len() as isize);
-    if step == 0 {
-        Some((curr, 0))
+    let (x, y) = curr;
+    let step = step as isize;
+    let next = match dir {
+        UP => (x - step, y),
+        DOWN => (x + step, y),
+        LEFT => (x, y - step),
+        RIGHT => (x, y + step),
+        _ => unreachable!("unknown direction: {dir}"),
+    };
+    if next.0 >= 0 && next.1 >= 0 && next.0 < bound.0 && next.1 < bound.1 {
+        let (x, y) = (x as usize, y as usize);
+        let loss = (1..=step as usize).fold(0, |sum, i| {
+            sum + match dir {
+                UP => map[x - i][y] as usize,
+                DOWN => map[x + i][y] as usize,
+                LEFT => map[x][y - i] as usize,
+                RIGHT => map[x][y + i] as usize,
+                _ => unreachable!("unknown direction: {dir}"),
+            }
+        });
+        Some((next, loss))
     } else {
-        let next = match dir {
-            UP => (curr.0 - 1, curr.1),
-            DOWN => (curr.0 + 1, curr.1),
-            LEFT => (curr.0, curr.1 - 1),
-            RIGHT => (curr.0, curr.1 + 1),
-            _ => unreachable!("unknown direction: {dir}"),
-        };
-        if next.0 >= 0 && next.1 >= 0 && next.0 < bound.0 && next.1 < bound.1 {
-            let loss = map[next.0 as usize][next.1 as usize] as usize;
-            next_nth(next, dir, step - 1, map).map(|(c, l)| (c, loss + l))
-        } else {
-            None
-        }
+        None
     }
 }
 
@@ -142,7 +149,7 @@ fn part1(map: &[Vec<u8>]) -> Result<usize> {
 fn part2(map: &[Vec<u8>]) -> Result<usize> {
     let _start = Instant::now();
 
-    let result = bfs((0, 0), map, 4, usize::MAX);
+    let result = bfs((0, 0), map, 4, 10);
 
     writeln!(io::stdout(), "Part 2: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
@@ -191,6 +198,17 @@ fn example_input() {
     let map = parse_input(input);
     assert_eq!(part1(&map).unwrap(), 102);
     assert_eq!(part2(&map).unwrap(), 94);
+}
+
+#[test]
+fn example_input2() {
+    let input = "111111111111
+999999999991
+999999999991
+999999999991
+999999999991";
+    let map = parse_input(input);
+    assert_eq!(part2(&map).unwrap(), 71);
 }
 
 #[test]
