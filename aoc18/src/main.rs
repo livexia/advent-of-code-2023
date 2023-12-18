@@ -49,22 +49,21 @@ impl Plan {
     fn from_rgb(s: &str) -> Result<Self> {
         let s = s.replace(['(', ')'], "");
         if let Some(raw) = s.strip_prefix('#') {
-            let mut raw = raw.chars().rev();
-            if let Some(dir) = raw.next() {
-                let dir = match dir {
-                    '0' => 'R',
-                    '1' => 'D',
-                    '2' => 'L',
-                    '3' => 'U',
-                    _ => return err!("unable to parse plan with rgb: {s:?}"),
-                };
-                let step = raw.fold(0, |sum, d| sum * 16 + d.to_digit(16).unwrap()) as isize;
-                return Ok(Self {
-                    dir,
-                    step,
-                    rgb: None,
-                });
-            }
+            let hex = isize::from_str_radix(raw, 16)?;
+
+            let dir = match hex & 0xf {
+                0 => 'R',
+                1 => 'D',
+                2 => 'L',
+                3 => 'U',
+                _ => return err!("unable to parse plan with rgb: {s:?}"),
+            };
+            let step = hex >> 4;
+            return Ok(Self {
+                dir,
+                step,
+                rgb: None,
+            });
         }
         err!("unable to parse plan with rgb: {s:?}")
     }
@@ -103,27 +102,19 @@ fn dig_edge(pos: Coord, plan: &Plan, grid: &mut HashSet<Coord>) -> Coord {
     let step = plan.step;
     match plan.dir {
         'U' => {
-            for i in x - step..x {
-                grid.insert((i, y));
-            }
+            grid.extend((x - step..x).map(|i| (i, y)));
             (x - step, y)
         }
         'D' => {
-            for i in x + 1..=(x + step) {
-                grid.insert((i, y));
-            }
+            grid.extend((x + 1..=x + step).map(|i| (i, y)));
             (x + step, y)
         }
         'L' => {
-            for j in y - step..y {
-                grid.insert((x, j));
-            }
+            grid.extend((y - step..y).map(|j| (x, j)));
             (x, y - step)
         }
         'R' => {
-            for j in y + 1..=(y + step) {
-                grid.insert((x, j));
-            }
+            grid.extend((y + 1..=y + step).map(|j| (x, j)));
             (x, y + step)
         }
         _ => unreachable!("Wrong direction: {plan:?}"),
@@ -141,7 +132,7 @@ fn dig_trench(plans: &[Plan]) -> HashSet<Coord> {
     grid
 }
 
-fn ray_cast(grid: &mut HashSet<Coord>) -> usize {
+fn ray_cast(grid: &HashSet<Coord>) -> usize {
     let min_x = grid.iter().min().unwrap().0;
     let max_x = grid.iter().max().unwrap().0;
     let min_y = grid.iter().min_by_key(|k| k.1).unwrap().1;
@@ -169,61 +160,14 @@ fn ray_cast(grid: &mut HashSet<Coord>) -> usize {
 fn part1(plans: &[Plan]) -> Result<usize> {
     let _start = Instant::now();
 
-    let mut grid = dig_trench(plans);
+    let grid = dig_trench(plans);
 
-    let result = ray_cast(&mut grid);
+    let result = ray_cast(&grid);
 
     writeln!(io::stdout(), "Part 1: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
     Ok(result)
 }
-
-fn plans_to_edges(plans: &[Plan]) -> (Vec<(Coord, Coord, Direction)>, Coord, Coord) {
-    let mut top_left = (0, 0);
-    let mut bottom_right = (0, 0);
-    let mut edges = Vec::with_capacity(plans.len());
-    let mut curr = (0, 0);
-    for plan in plans {
-        let (x, y) = curr;
-        let step = plan.step;
-        let next = match plan.dir {
-            'U' => (x - step, y),
-            'D' => (x + step, y),
-            'L' => (x, y - step),
-            'R' => (x, y + step),
-            _ => unreachable!("Wrong direction: {plan:?}"),
-        };
-        top_left.0 = top_left.0.min(x.min(next.0));
-        top_left.1 = top_left.1.min(y.min(next.1));
-        bottom_right.0 = top_left.0.max(x.max(next.0));
-        bottom_right.1 = top_left.1.max(y.max(next.1));
-
-        edges.push((curr, next, plan.dir));
-        curr = next;
-    }
-    (edges, top_left, bottom_right)
-}
-
-fn on_edge(pos: Coord, edge: (Coord, Coord)) -> bool {
-    (pos.0.abs_diff(edge.0 .0)
-        + pos.1.abs_diff(edge.0 .1)
-        + pos.0.abs_diff(edge.1 .0)
-        + pos.1.abs_diff(edge.1 .1))
-        == edge.0 .0.abs_diff(edge.1 .0) + edge.0 .1.abs_diff(edge.1 .1)
-}
-
-fn on_edges(pos: Coord, edges: &[(Coord, Coord, Direction)]) -> Vec<Direction> {
-    let mut result = vec![];
-    for &(start, end, dir) in edges {
-        if on_edge(pos, (start, end)) {
-            result.push(dir);
-        }
-    }
-    result.sort();
-    result
-}
-
-fn ray_cast_with_edges(edges: &[(Coord, Coord, Direction)], top_left: Coord, bottom_right: Coord) {}
 
 fn part2(plans: &[Plan]) -> Result<usize> {
     let _start = Instant::now();
@@ -233,8 +177,24 @@ fn part2(plans: &[Plan]) -> Result<usize> {
         .map(|p| Plan::from_rgb(p.rgb.as_ref().unwrap()))
         .collect::<Result<Vec<_>>>()?;
 
-    let mut grid = dig_trench(&plans);
-    let result = ray_cast(&mut grid);
+    let mut interior = 0;
+    let mut edge = 0;
+    let mut curr = (0, 0);
+    for plan in &plans {
+        let (x, y) = curr;
+        let step = plan.step;
+        let next = match plan.dir {
+            'U' => (x - step, y),
+            'D' => (x + step, y),
+            'L' => (x, y - step),
+            'R' => (x, y + step),
+            _ => unreachable!(),
+        };
+        edge += step;
+        interior += x * next.1 - next.0 * y;
+        curr = next;
+    }
+    let result = ((edge + interior.abs()) / 2 + 1).unsigned_abs();
 
     writeln!(io::stdout(), "Part 2: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
@@ -278,4 +238,5 @@ fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let plans = parse_input(input).unwrap();
     assert_eq!(part1(&plans).unwrap(), 49897);
+    assert_eq!(part2(&plans).unwrap(), 194033958221830);
 }
