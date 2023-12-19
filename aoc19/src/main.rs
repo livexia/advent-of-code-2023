@@ -235,13 +235,14 @@ impl Possible {
         }
     }
 
-    fn split(self, rating: char, op: char, op1: usize) -> (Possible, Possible) {
-        let (mut left, mut right) = (self.clone(), self);
+    fn split(self, rating: char, op: char, op1: usize) -> (Option<Possible>, Option<Possible>) {
+        let (mut left, mut right) = (Some(self.clone()), Some(self));
+        let (l_p, r_p) = (left.as_mut().unwrap(), right.as_mut().unwrap());
         let (l_r, r_r) = match rating {
-            'x' => (&mut left.x, &mut right.x),
-            'm' => (&mut left.m, &mut right.m),
-            'a' => (&mut left.a, &mut right.a),
-            's' => (&mut left.s, &mut right.s),
+            'x' => (&mut l_p.x, &mut r_p.x),
+            'm' => (&mut l_p.m, &mut r_p.m),
+            'a' => (&mut l_p.a, &mut r_p.a),
+            's' => (&mut l_p.s, &mut r_p.s),
             _ => unreachable!(),
         };
         match op {
@@ -249,20 +250,30 @@ impl Possible {
                 // op1 + 1..=max is occupied (left)
                 // left (op1 + 1..=max)
                 // right (min..=op1)
-                l_r.0 = op1 + 1;
-                r_r.1 = op1;
+                if op1 + 1 > l_r.1 {
+                    left = None;
+                } else if op1 < l_r.0 {
+                    right = None;
+                } else {
+                    l_r.0 = op1 + 1;
+                    r_r.1 = op1;
+                }
             }
             '<' => {
                 // min..=op1 -1 is occupid (left)
                 // left (min..=op1-1)
                 // right (op1..=max)
-                l_r.1 = op1 - 1;
-                r_r.0 = op1;
+                if op1 - 1 < l_r.0 {
+                    left = None;
+                } else if op1 > l_r.1 {
+                    right = None;
+                } else {
+                    l_r.1 = op1 - 1;
+                    r_r.0 = op1;
+                }
             }
             _ => unreachable!(),
         }
-        assert!(l_r.0 <= l_r.1);
-        assert!(r_r.0 <= r_r.1);
         (left, right)
     }
 
@@ -280,12 +291,18 @@ fn dp(id: usize, ws: &WorkflowIdMap, possible: Possible) -> usize {
     for rule in &wf.rules[..l - 1] {
         if let (Some(rating), Some(op), Some(op1)) = (rule.rating, rule.op, rule.op1) {
             let (occupy, remain) = possible.split(rating, op, op1);
-            match rule.result {
-                ProcessingResult::Accepted => result += occupy.count(),
-                ProcessingResult::Rejected => (),
-                ProcessingResult::Workflow(n_id) => result += dp(n_id, ws, occupy),
+            if let Some(occupy) = occupy {
+                match rule.result {
+                    ProcessingResult::Accepted => result += occupy.count(),
+                    ProcessingResult::Rejected => (),
+                    ProcessingResult::Workflow(n_id) => result += dp(n_id, ws, occupy),
+                }
             }
-            possible = remain;
+            if let Some(remain) = remain {
+                possible = remain;
+            } else {
+                return result;
+            }
         }
     }
     match wf.rules[l - 1].result {
