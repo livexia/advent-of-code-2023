@@ -217,13 +217,104 @@ fn part1(
     Ok(result)
 }
 
+#[derive(Clone)]
+struct Possible {
+    x: (usize, usize),
+    m: (usize, usize),
+    a: (usize, usize),
+    s: (usize, usize),
+}
+
+impl Possible {
+    fn new() -> Self {
+        Self {
+            x: (1, 4000),
+            m: (1, 4000),
+            a: (1, 4000),
+            s: (1, 4000),
+        }
+    }
+
+    fn split(self, rating: char, op: char, op1: usize) -> (Possible, Possible) {
+        let (mut left, mut right) = (self.clone(), self);
+        let (l_r, r_r) = match rating {
+            'x' => (&mut left.x, &mut right.x),
+            'm' => (&mut left.m, &mut right.m),
+            'a' => (&mut left.a, &mut right.a),
+            's' => (&mut left.s, &mut right.s),
+            _ => unreachable!(),
+        };
+        match op {
+            '>' => {
+                // op1 + 1..=max is occupied (left)
+                // left (op1 + 1..=max)
+                // right (min..=op1)
+                l_r.0 = op1 + 1;
+                r_r.1 = op1;
+            }
+            '<' => {
+                // min..=op1 -1 is occupid (left)
+                // left (min..=op1-1)
+                // right (op1..=max)
+                l_r.1 = op1 - 1;
+                r_r.0 = op1;
+            }
+            _ => unreachable!(),
+        }
+        assert!(l_r.0 <= l_r.1);
+        assert!(r_r.0 <= r_r.1);
+        (left, right)
+    }
+
+    fn count(&self) -> usize {
+        let (x, m, a, s) = (self.x, self.m, self.a, self.s);
+        (x.1 - x.0 + 1) * (m.1 - m.0 + 1) * (a.1 - a.0 + 1) * (s.1 - s.0 + 1)
+    }
+}
+
+fn dp(id: usize, ws: &WorkflowIdMap, possible: Possible) -> usize {
+    let mut result = 0;
+    let wf = ws.get(&id).unwrap();
+    let l = wf.rules.len();
+    let mut possible = possible;
+    for rule in &wf.rules[..l - 1] {
+        if let (Some(rating), Some(op), Some(op1)) = (rule.rating, rule.op, rule.op1) {
+            let (occupy, remain) = possible.split(rating, op, op1);
+            match rule.result {
+                ProcessingResult::Accepted => result += occupy.count(),
+                ProcessingResult::Rejected => (),
+                ProcessingResult::Workflow(n_id) => result += dp(n_id, ws, occupy),
+            }
+            possible = remain;
+        }
+    }
+    match wf.rules[l - 1].result {
+        ProcessingResult::Accepted => result += possible.count(),
+        ProcessingResult::Rejected => (),
+        ProcessingResult::Workflow(n_id) => result += dp(n_id, ws, possible),
+    }
+
+    result
+}
+
+fn part2(ws: &WorkflowIdMap, map: &WorkflowNameMap) -> Result<usize> {
+    let _start = Instant::now();
+
+    let &id = map.get("in").unwrap();
+
+    let result = dp(id, ws, Possible::new());
+
+    writeln!(io::stdout(), "Part 2: {result}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+    Ok(result)
+}
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
     let (rs, ws, map) = parse_input(input)?;
     part1(&rs, &ws, &map)?;
-    // part2()?;
+    part2(&ws, &map)?;
     Ok(())
 }
 
@@ -249,6 +340,7 @@ hdj{m>838:A,pv}
 
     let (rs, ws, map) = parse_input(input).unwrap();
     assert_eq!(part1(&rs, &ws, &map).unwrap(), 19114);
+    assert_eq!(part2(&ws, &map).unwrap(), 167409079868000);
 }
 
 #[test]
@@ -256,4 +348,5 @@ fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let (rs, ws, map) = parse_input(input).unwrap();
     assert_eq!(part1(&rs, &ws, &map).unwrap(), 391132);
+    assert_eq!(part2(&ws, &map).unwrap(), 128163929109524);
 }
