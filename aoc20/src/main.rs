@@ -96,20 +96,19 @@ impl FromStr for Machine {
 }
 
 impl Machine {
-    fn push_button(&mut self, rx: bool) -> (usize, usize, bool) {
+    fn push_button(&mut self, check_on: Option<&str>) -> (usize, usize, bool) {
         let mut queue = VecDeque::new();
         queue.push_back(("button", "broadcaster", false));
 
         let mut low_cnt = 0;
         let mut high_cnt = 0;
 
+        let mut flag = false;
+
         while let Some((sender, receiver, pulse)) = queue.pop_front() {
             low_cnt += (!pulse) as usize;
             high_cnt += pulse as usize;
             // println!("{sender} - {pulse:?} -> {receiver}");
-            if rx && receiver == "rx" && !pulse {
-                return (0, 0, true);
-            }
 
             let module = if let Some(module) = self.modules.get_mut(receiver) {
                 module
@@ -130,6 +129,12 @@ impl Machine {
                 Module::Conjunction(_, status) => {
                     status.insert(sender.to_string(), pulse);
                     let next_pulse = !status.values().all(|b| *b);
+                    if Some(receiver) == check_on {
+                        for s in status.iter().filter(|(_, v)| **v) {
+                            flag = true;
+                            println!("vd: {s:?}");
+                        }
+                    }
                     for next_module in dest {
                         queue.push_back((receiver, next_module, next_pulse));
                     }
@@ -142,7 +147,8 @@ impl Machine {
                 Module::Button => queue.push_back(("button", "broadcaster", false)),
             }
         }
-        (low_cnt, high_cnt, false)
+
+        (low_cnt, high_cnt, flag)
     }
 }
 
@@ -153,7 +159,7 @@ fn part1(machine: &Machine) -> Result<usize> {
 
     let (mut low_cnt, mut high_cnt) = (0, 0);
     for _ in 0..1000 {
-        let (c1, c2, _) = machine.push_button(false);
+        let (c1, c2, _) = machine.push_button(None);
         low_cnt += c1;
         high_cnt += c2;
     }
@@ -170,9 +176,27 @@ fn part2(machine: &Machine) -> Result<usize> {
 
     let mut machine = machine.clone();
 
-    let result = (1..).find(|_| machine.push_button(true).2).unwrap();
+    let rx_rely: Vec<_> = machine
+        .cables
+        .iter()
+        .filter(|(_, v)| v.contains(&"rx".to_string()))
+        .map(|(k, _)| k)
+        .collect();
+    if rx_rely.len() != 1 {
+        unimplemented!("Unknown input for part 2");
+    }
+    let rx_rely = rx_rely[0].clone();
 
-    writeln!(io::stdout(), "Part 2: {result}")?;
+    for i in 1..10000 {
+        let (_, _, b) = machine.push_button(Some(&rx_rely));
+        if b {
+            println!("{i}");
+        }
+    }
+
+    let result = 0;
+
+    writeln!(io::stdout(), "Part 2: Manual Calculation Part Two")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
     Ok(result)
 }
