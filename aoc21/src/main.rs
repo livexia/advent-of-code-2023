@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::HashSet;
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::time::Instant;
@@ -37,43 +37,42 @@ fn normalize_coord(pos: Coord, bound: Coord) -> (Coord, Coord) {
     (origin, dis)
 }
 
-fn bfs(start: Coord, mut step: usize, bound: Coord, map: &HashSet<Coord>) -> usize {
-    let mut cache: HashMap<Coord, Vec<Coord>> = HashMap::new();
+fn bfs(start: Coord, step: usize, bound: Coord, map: &HashSet<Coord>) -> usize {
+    let mut visited = HashSet::new();
+    visited.insert(start);
+    let mut count = 0;
+    let mut f = [0, 0, 0];
 
-    for i in 0..bound.0 {
-        for j in 0..bound.1 {
-            if !map.contains(&(i, j)) {
-                continue;
-            }
-            let e = cache.entry((i, j)).or_default();
+    for i in 1..=step {
+        let mut temp = HashSet::with_capacity(visited.len() * 3);
+        for curr in visited {
             for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-                let (nx, ny) = (i + dx, j + dy);
+                let (nx, ny) = (curr.0 + dx, curr.1 + dy);
                 let (origin, _) = normalize_coord((nx, ny), bound);
                 if map.contains(&origin) {
-                    e.push((nx, ny));
+                    temp.insert((nx, ny));
                 }
+            }
+        }
+        visited = temp;
+        if (step as isize) % bound.0 == (i as isize) % bound.0 {
+            f[count] = visited.len();
+            // let x = i as isize / bound.0;
+            // ax^2 + bx + c = visited.len()
+            count += 1;
+            if count == 3 {
+                // solve a b c
+                let c = f[0];
+                let b = (4 * (f[1] - c) - (f[2] - c)) / 2;
+                let a = f[1] - b - c;
+                dbg!(a, b, c);
+                let x = step / bound.0 as usize;
+                return a * x * x + b * x + c;
             }
         }
     }
 
-    let mut queue = HashSet::new();
-    queue.insert(start);
-    while step > 0 {
-        step -= 1;
-
-        queue = queue
-            .iter()
-            .flat_map(|&curr| {
-                let (origin, dis) = normalize_coord(curr, bound);
-                cache
-                    .get(&origin)
-                    .unwrap()
-                    .iter()
-                    .map(move |(x, y)| (x + dis.0, y + dis.1))
-            })
-            .collect();
-    }
-    queue.len()
+    visited.len()
 }
 
 fn part1(start: Coord, bound: Coord, map: &HashSet<Coord>) -> Result<usize> {
@@ -134,5 +133,8 @@ fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let (start, bound, map) = parse_input(input);
     assert_eq!(part1(start, bound, &map).unwrap(), 3600);
-    assert_eq!(part2(start, bound, &map).unwrap(), 3600);
+    // assert_eq!(bfs(start, 65, bound, &map), 3720);
+    // assert_eq!(bfs(start, 65 + 131, bound, &map), 33150);
+    // assert_eq!(bfs(start, 65 + 131 * 2, bound, &map), 91890);
+    assert_eq!(part2(start, bound, &map).unwrap(), 599763113936220);
 }
