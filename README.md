@@ -749,3 +749,30 @@ https://en.wikipedia.org/wiki/Shoelace_formula
 - 假设二次函数为 $f(x) = ax^2 + bx +c$ 且 $x = (step - 65) / 131$
 - 那么得到 f(0) , f(1) 和 f(2) 的值就可以计算出系数 a b c
 - 再计算 f(202300) 即是结果
+
+## Day 22[[code](https://github.com/livexia/advent-of-code-2023/blob/main/aoc22/src/main.rs)]
+
+今天的题目并不难，核心的问题就是砖块掉落，是否会和下方的砖块产生碰撞。第一部分第二部分都是在这个基础之上进行求解。我首先就想到砖块实际上就是两个线段，是否会产生碰撞，那么只需要计算线段是否存在交点即可，参考了几个 stackover flow 的解法，可惜最后的答案不对。最后用了笨办法，那就是记录砖块占据的所有网格位置，碰撞时统计各自占据的网格位置是否存在重叠即可，笨办法替换了线性代数之后可以顺利解决两个部分，虽然运行速度不快。对比两个检测碰撞的方法，发现在两个线段存在重叠时，线性代数的方法会得出错误的结果，可惜我的线性代数学不到家，只看数学我是根本不知道问题何在。
+
+**线性代数检测线段相交[[code](https://github.com/livexia/advent-of-code-2023/commit/fdb5d7cccfb93ee2c75de1382dde44b74238d6d0),** [fixed code](https://github.com/livexia/advent-of-code-2023/commit/10a2bb9480697a3a5ed8e26e179a436945aefb1d)**]**
+
+- https://stackoverflow.com/questions/5666222/3d-line-plane-intersection
+- https://stackoverflow.com/questions/55220355/how-to-detect-whether-two-segments-in-3d-space-intersect
+- https://stackoverflow.com/questions/2316490/the-algorithm-to-find-the-point-of-intersection-of-two-3d-line-segment
+- 当两个线段位于同一条直线上时，实现代码计算出的 s 和 t 都为 Nan ，于是被认定线段一定不存在交点（重叠）
+- 增加线段重叠检测之后，运行结果正确，运行时间是 HashSet 方法的一半
+
+**性能优优化[[code](https://github.com/livexia/advent-of-code-2023/commit/93c6f76316c688720026cb35380ffd4af26eb848)]**
+
+- 无论是用 Set 还是线性代数判断线段是否相交时，可以先判断两个砖块在 Z 轴方向上是否存在重叠，如果不存在重叠，那么一定不可能相交，通过这一个判断可以将 Debug 编译的第一部分运行时间从 10s 降低至 3s  ，第二部分则从 18 s 降低至 6s。
+- 当前的 HashSet 是存储在 Struct 中，每一个砖块都有自己的 HashSet ，在测试掉落时，也需要构造新的 HashSet ，也许可以使用一份 HashSet 记录所有砖块已经占据的位置。
+    - Debug: 第一部分 3s → 2s
+
+**构造支撑图[[code](https://github.com/livexia/advent-of-code-2023/commit/f1fecd6014c902769779cc9084eafd7c38bb7829)]**
+
+根据初始完全落下所有砖块，构造砖块与砖块之间的支撑关系
+
+- 第一部分要计算移除某一砖块（节点），图不被断开
+- 第二部分则要计算移除某一砖块（节点），当图断开时剩余图的长度
+- 主要的时间耗费应该是在最初的落下砖块和构造支撑图，第一第二部分的具体计算只占用很小一部分的运行时间
+- 对比利用线性代数或者 HashSet 在第一第二部分都模拟消除砖块再检测下落，Debug 下的运行时间从 2s → 1s ，release 则是从 400ms → 120ms
