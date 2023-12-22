@@ -124,6 +124,13 @@ impl Brick {
             return false;
         }
 
+        if cross(da, db) == (0, 0, 0) {
+            return is_in_line(self.start, other.start, other.end)
+                || is_in_line(self.end, other.start, other.end)
+                || is_in_line(other.start, self.start, self.end)
+                || is_in_line(other.end, self.start, self.end);
+        }
+
         let s = dot(cross(dc, db), cross(da, db)) / norm2(cross(da, db));
         // https://stackoverflow.com/a/33825948
         let t = dot(cross(dc, da), cross(da, db)) / norm2(cross(da, db));
@@ -132,28 +139,46 @@ impl Brick {
     }
 }
 
-fn part1(bricks: &[Brick]) -> Result<usize> {
-    let _start = Instant::now();
+fn dis(p1: Coord, p2: Coord) -> usize {
+    p1.0.abs_diff(p2.0) + p1.1.abs_diff(p2.1) + p1.2.abs_diff(p2.2)
+}
 
-    let mut bricks = bricks.to_vec();
+fn is_in_line(p: Coord, start: Coord, end: Coord) -> bool {
+    dis(p, start) + dis(p, end) == dis(start, end)
+}
+
+fn falling(bricks: &mut [Brick]) -> usize {
     bricks.sort_by_key(|b| b.start.2);
+    let mut count = 0;
 
     for i in 0..bricks.len() {
+        let mut flag = false;
         while let Some(next) = bricks[i].falling() {
             if bricks[0..i]
                 .iter()
                 .rev()
-                .all(|b| !next.is_intersect_hashset(b))
+                .all(|b| !next.is_intersect_algebra(b))
                 && bricks[i + 1..]
                     .iter()
-                    .all(|b| !next.is_intersect_hashset(b))
+                    .all(|b| !next.is_intersect_algebra(b))
             {
                 bricks[i] = next;
+                flag = true;
             } else {
                 break;
             }
         }
+        count += flag as usize;
     }
+    count
+}
+
+fn part1(bricks: &[Brick]) -> Result<usize> {
+    let _start = Instant::now();
+
+    let mut bricks = bricks.to_vec();
+
+    let _ = falling(&mut bricks);
 
     bricks.sort_by_key(|b| b.start.2);
     let mut count = bricks.len();
@@ -181,13 +206,33 @@ fn part1(bricks: &[Brick]) -> Result<usize> {
     Ok(count)
 }
 
+fn part2(bricks: &[Brick]) -> Result<usize> {
+    let _start = Instant::now();
+
+    let mut bricks = bricks.to_vec();
+
+    let _ = falling(&mut bricks);
+
+    bricks.sort_by_key(|b| b.start.2);
+    let mut count = 0;
+    for i in 0..bricks.len() {
+        let mut temp = bricks.clone();
+        temp.remove(i);
+        count += falling(&mut temp);
+    }
+
+    writeln!(io::stdout(), "Part 2: {count}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+    Ok(count)
+}
+
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
     let bricks = parse_input(input);
     part1(&bricks)?;
-    // part2()?;
+    part2(&bricks)?;
     Ok(())
 }
 
@@ -202,10 +247,11 @@ fn example_input() {
 1,1,8~1,1,9";
 
     assert!(
-        Brick::new((0, 1, 4), (2, 1, 4)).is_intersect_algebra(&Brick::new((1, 1, 4), (1, 1, 5)))
+        Brick::new((5, 0, 4), (8, 0, 4)).is_intersect_algebra(&Brick::new((5, 0, 4), (15, 0, 4)))
     );
     let bricks = parse_input(input);
     assert_eq!(part1(&bricks).unwrap(), 5);
+    assert_eq!(part2(&bricks).unwrap(), 7);
 }
 
 #[test]
@@ -213,4 +259,5 @@ fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let bricks = parse_input(input);
     assert_eq!(part1(&bricks).unwrap(), 401);
+    assert_eq!(part2(&bricks).unwrap(), 63491);
 }
