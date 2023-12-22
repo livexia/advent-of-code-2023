@@ -16,7 +16,6 @@ type Coord = (isize, isize, isize);
 struct Brick {
     start: Coord,
     end: Coord,
-    cubes: HashSet<Coord>,
 }
 
 fn parse_input<T: AsRef<str>>(input: T) -> Vec<Brick> {
@@ -45,22 +44,20 @@ fn parse_input<T: AsRef<str>>(input: T) -> Vec<Brick> {
 
 impl Brick {
     fn new(start: Coord, end: Coord) -> Self {
-        let mut b = Brick {
-            start,
-            end,
-            cubes: HashSet::new(),
-        };
-        let mut set = HashSet::new();
+        Brick { start, end }
+    }
+    fn cubes(&self) -> Vec<Coord> {
+        let mut cubes = Vec::new();
+        let (start, end) = (self.start, self.end);
         for x in start.0..=end.0 {
             for y in start.1..=end.1 {
                 for z in start.2..=end.2 {
-                    set.insert((x, y, z));
+                    cubes.push((x, y, z));
                 }
             }
         }
 
-        b.cubes = set;
-        b
+        cubes
     }
     fn falling(&self) -> Option<Self> {
         if self.start.2 == 1 {
@@ -74,8 +71,12 @@ impl Brick {
         }
     }
 
+    #[allow(dead_code)]
     fn is_intersect_hashset(&self, other: &Brick) -> bool {
-        self.cubes.iter().any(|p| other.cubes.contains(p))
+        if self.end.2 < other.start.2 || self.start.2 > other.end.2 {
+            return false;
+        }
+        self.cubes().iter().any(|p| other.cubes().contains(p))
     }
 
     // https://stackoverflow.com/questions/55220355/how-to-detect-whether-two-segments-in-3d-space-intersect
@@ -101,6 +102,10 @@ impl Brick {
                 p1.2 * p2.0 - p2.2 * p1.0,
                 p1.0 * p2.1 - p2.0 * p1.1,
             )
+        }
+
+        if self.end.2 < other.start.2 || self.start.2 > other.end.2 {
+            return false;
         }
 
         let da = (
@@ -158,9 +163,6 @@ fn falling(bricks: &mut [Brick]) -> usize {
                 .iter()
                 .rev()
                 .all(|b| !next.is_intersect_algebra(b))
-                && bricks[i + 1..]
-                    .iter()
-                    .all(|b| !next.is_intersect_algebra(b))
             {
                 bricks[i] = next;
                 flag = true;
@@ -191,8 +193,7 @@ fn part1(bricks: &[Brick]) -> Result<usize> {
                 if temp[0..j]
                     .iter()
                     .rev()
-                    .all(|b| !next.is_intersect_hashset(b))
-                    && temp[j + 1..].iter().all(|b| !next.is_intersect_hashset(b))
+                    .all(|b| !next.is_intersect_algebra(b))
                 {
                     count -= 1;
                     break;
