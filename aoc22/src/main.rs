@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::time::Instant;
@@ -294,6 +294,96 @@ fn part2_hashset(bricks: &[Brick]) -> Result<usize> {
     Ok(count)
 }
 
+fn support_graph(bricks: &[Brick]) -> (HashMap<usize, Vec<usize>>, HashMap<usize, Vec<usize>>) {
+    let mut support_by: HashMap<usize, Vec<_>> = HashMap::new();
+    let mut support: HashMap<usize, Vec<_>> = HashMap::new();
+    let falling_bricks: Vec<_> = bricks.iter().map(|b| b.falling()).collect();
+    for i in 0..bricks.len() {
+        support_by.insert(
+            i,
+            (0..i)
+                .filter(|&j| {
+                    if let Some(i_falling) = &falling_bricks[i] {
+                        bricks[j].is_intersect_algebra(i_falling)
+                    } else {
+                        false
+                    }
+                })
+                .collect(),
+        );
+        support.insert(
+            i,
+            (i + 1..bricks.len())
+                .filter(|&j| {
+                    if let Some(j_falling) = &falling_bricks[j] {
+                        j_falling.is_intersect_algebra(&bricks[i])
+                    } else {
+                        false
+                    }
+                })
+                .collect(),
+        );
+    }
+    (support_by, support)
+}
+
+fn part1_support_graph(bricks: &[Brick]) -> Result<usize> {
+    let _start = Instant::now();
+
+    let mut bricks = bricks.to_vec();
+
+    let _ = falling(&mut bricks, 0);
+
+    let (support_by, support) = support_graph(&bricks);
+
+    let mut count = 0;
+    for i in 0..bricks.len() {
+        if support[&i].is_empty() {
+            count += 1;
+        } else {
+            count += support[&i].iter().all(|j| support_by[&j].len() != 1) as usize;
+        }
+    }
+
+    writeln!(io::stdout(), "Part 1: {count}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+    Ok(count)
+}
+
+fn total_support(
+    i: &usize,
+    support_by: &HashMap<usize, Vec<usize>>,
+    support: &HashMap<usize, Vec<usize>>,
+    removed: &mut HashSet<usize>,
+) -> usize {
+    let mut count = 0;
+    removed.insert(*i);
+    for j in &support[i] {
+        if support_by[j].iter().all(|k| removed.contains(k)) {
+            count += 1;
+            count += total_support(j, support_by, support, removed)
+        }
+    }
+    count
+}
+
+fn part2_support_graph(bricks: &[Brick]) -> Result<usize> {
+    let _start = Instant::now();
+
+    let mut bricks = bricks.to_vec();
+
+    let _ = falling(&mut bricks, 0);
+
+    let (support_by, support) = support_graph(&bricks);
+    let count = (0..bricks.len())
+        .map(|i| total_support(&i, &support_by, &support, &mut HashSet::new()))
+        .sum();
+
+    writeln!(io::stdout(), "Part 2: {count}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+    Ok(count)
+}
+
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
@@ -304,6 +394,9 @@ fn main() -> Result<()> {
 
     part1_hashset(&bricks)?;
     part2_hashset(&bricks)?;
+
+    part1_support_graph(&bricks)?;
+    part2_support_graph(&bricks)?;
     Ok(())
 }
 
@@ -323,6 +416,8 @@ fn example_input() {
     let bricks = parse_input(input);
     assert_eq!(part1(&bricks).unwrap(), 5);
     assert_eq!(part2(&bricks).unwrap(), 7);
+    assert_eq!(part1_support_graph(&bricks).unwrap(), 5);
+    assert_eq!(part2_support_graph(&bricks).unwrap(), 7);
 }
 
 #[test]
@@ -333,4 +428,6 @@ fn real_input() {
     assert_eq!(part2(&bricks).unwrap(), 63491);
     assert_eq!(part1_hashset(&bricks).unwrap(), 401);
     assert_eq!(part2_hashset(&bricks).unwrap(), 63491);
+    assert_eq!(part1_support_graph(&bricks).unwrap(), 401);
+    assert_eq!(part2_support_graph(&bricks).unwrap(), 63491);
 }
