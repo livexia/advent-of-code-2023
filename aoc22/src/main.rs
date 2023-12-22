@@ -72,11 +72,8 @@ impl Brick {
     }
 
     #[allow(dead_code)]
-    fn is_intersect_hashset(&self, other: &Brick) -> bool {
-        if self.end.2 < other.start.2 || self.start.2 > other.end.2 {
-            return false;
-        }
-        self.cubes().iter().any(|p| other.cubes().contains(p))
+    fn is_intersect_hashset(&self, grid: &HashSet<Coord>) -> bool {
+        self.cubes().iter().any(|p| grid.contains(p))
     }
 
     // https://stackoverflow.com/questions/55220355/how-to-detect-whether-two-segments-in-3d-space-intersect
@@ -152,11 +149,11 @@ fn is_in_line(p: Coord, start: Coord, end: Coord) -> bool {
     dis(p, start) + dis(p, end) == dis(start, end)
 }
 
-fn falling(bricks: &mut [Brick]) -> usize {
+fn falling(bricks: &mut [Brick], start: usize) -> usize {
     bricks.sort_by_key(|b| b.start.2);
     let mut count = 0;
 
-    for i in 0..bricks.len() {
+    for i in start..bricks.len() {
         let mut flag = false;
         while let Some(next) = bricks[i].falling() {
             if bricks[0..i]
@@ -180,7 +177,7 @@ fn part1(bricks: &[Brick]) -> Result<usize> {
 
     let mut bricks = bricks.to_vec();
 
-    let _ = falling(&mut bricks);
+    let _ = falling(&mut bricks, 0);
 
     bricks.sort_by_key(|b| b.start.2);
     let mut count = bricks.len();
@@ -188,7 +185,7 @@ fn part1(bricks: &[Brick]) -> Result<usize> {
         let mut temp = bricks.clone();
         temp.remove(i);
 
-        for j in 0..temp.len() {
+        for j in i..temp.len() {
             if let Some(next) = temp[j].falling() {
                 if temp[0..j]
                     .iter()
@@ -212,14 +209,84 @@ fn part2(bricks: &[Brick]) -> Result<usize> {
 
     let mut bricks = bricks.to_vec();
 
-    let _ = falling(&mut bricks);
+    let _ = falling(&mut bricks, 0);
 
     bricks.sort_by_key(|b| b.start.2);
     let mut count = 0;
     for i in 0..bricks.len() {
         let mut temp = bricks.clone();
         temp.remove(i);
-        count += falling(&mut temp);
+        count += falling(&mut temp, i);
+    }
+
+    writeln!(io::stdout(), "Part 2: {count}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+    Ok(count)
+}
+
+fn falling_hashset(bricks: &mut [Brick], start: usize, chain: bool) -> usize {
+    bricks.sort_by_key(|b| b.start.2);
+    let mut count = 0;
+
+    let mut grid = HashSet::new();
+    for b in &bricks[..start] {
+        grid.extend(b.cubes().iter());
+    }
+    for b in &mut bricks[start..] {
+        let mut flag = false;
+        while let Some(next) = b.falling() {
+            if !next.is_intersect_hashset(&grid) {
+                if !chain {
+                    return 1;
+                }
+                *b = next;
+                flag = true;
+            } else {
+                break;
+            }
+        }
+        grid.extend(b.cubes().iter());
+
+        count += flag as usize;
+    }
+    count
+}
+
+fn part1_hashset(bricks: &[Brick]) -> Result<usize> {
+    let _start = Instant::now();
+
+    let mut bricks = bricks.to_vec();
+
+    let _ = falling_hashset(&mut bricks, 0, true);
+
+    bricks.sort_by_key(|b| b.start.2);
+    let mut count = bricks.len();
+    for i in 0..bricks.len() {
+        let mut temp = bricks.clone();
+        temp.remove(i);
+        if falling_hashset(&mut temp, i, false) == 1 {
+            count -= 1;
+        }
+    }
+
+    writeln!(io::stdout(), "Part 1: {count}")?;
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+    Ok(count)
+}
+
+fn part2_hashset(bricks: &[Brick]) -> Result<usize> {
+    let _start = Instant::now();
+
+    let mut bricks = bricks.to_vec();
+
+    let _ = falling_hashset(&mut bricks, 0, true);
+
+    bricks.sort_by_key(|b| b.start.2);
+    let mut count = 0;
+    for i in 0..bricks.len() {
+        let mut temp = bricks.clone();
+        temp.remove(i);
+        count += falling_hashset(&mut temp, i, true);
     }
 
     writeln!(io::stdout(), "Part 2: {count}")?;
@@ -234,6 +301,9 @@ fn main() -> Result<()> {
     let bricks = parse_input(input);
     part1(&bricks)?;
     part2(&bricks)?;
+
+    part1_hashset(&bricks)?;
+    part2_hashset(&bricks)?;
     Ok(())
 }
 
@@ -261,4 +331,6 @@ fn real_input() {
     let bricks = parse_input(input);
     assert_eq!(part1(&bricks).unwrap(), 401);
     assert_eq!(part2(&bricks).unwrap(), 63491);
+    assert_eq!(part1_hashset(&bricks).unwrap(), 401);
+    assert_eq!(part2_hashset(&bricks).unwrap(), 63491);
 }
