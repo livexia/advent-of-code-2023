@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::time::Instant;
@@ -20,7 +20,39 @@ fn parse_input<T: AsRef<str>>(input: T) -> Vec<Vec<char>> {
         .collect()
 }
 
-fn dfs(
+fn neighbors(pos: Coord, trails: &[Vec<char>], part2: bool) -> Vec<Coord> {
+    let (x, y) = pos;
+    let possible = if !part2 {
+        match trails[x][y] {
+            '.' => vec![(-1, 0), (1, 0), (0, -1), (0, 1)],
+            '>' => vec![(0, 1)],
+            '<' => vec![(0, -1)],
+            '^' => vec![(-1, 0)],
+            'v' => vec![(1, 0)],
+            _ => return vec![],
+        }
+    } else if trails[x][y] != '#' {
+        vec![(-1, 0), (1, 0), (0, -1), (0, 1)]
+    } else {
+        return vec![];
+    };
+    let mut result = vec![];
+    for (dx, dy) in possible {
+        let nx = x as isize + dx;
+        let ny = y as isize + dy;
+        if nx < 0 || ny < 0 || nx as usize >= trails.len() || ny as usize >= trails[0].len() {
+            continue;
+        }
+        let nx = nx as usize;
+        let ny = ny as usize;
+        if trails[nx][ny] != '#' {
+            result.push((nx, ny));
+        }
+    }
+    result
+}
+
+fn dfs_grid(
     pos: Coord,
     trails: &[Vec<char>],
     visited: &mut HashSet<Coord>,
@@ -33,35 +65,13 @@ fn dfs(
             None
         }
     } else {
-        let (x, y) = pos;
-        let possible = if !part2 {
-            match trails[x][y] {
-                '.' => vec![(-1, 0), (1, 0), (0, -1), (0, 1)],
-                '>' => vec![(0, 1)],
-                '<' => vec![(0, -1)],
-                '^' => vec![(-1, 0)],
-                'v' => vec![(1, 0)],
-                _ => return None,
-            }
-        } else if trails[x][y] != '#' {
-            vec![(-1, 0), (1, 0), (0, -1), (0, 1)]
-        } else {
-            return None;
-        };
         let mut count = 0;
-        for (dx, dy) in possible {
-            let nx = x as isize + dx;
-            let ny = y as isize + dy;
-            if nx < 0 || ny < 0 || nx as usize >= trails.len() || ny as usize >= trails[0].len() {
-                continue;
-            }
-            let nx = nx as usize;
-            let ny = ny as usize;
-            if trails[nx][ny] != '#' && visited.insert((nx, ny)) {
-                if let Some(remain) = dfs((nx, ny), trails, visited, part2) {
+        for next in neighbors(pos, trails, part2) {
+            if visited.insert(next) {
+                if let Some(remain) = dfs_grid(next, trails, visited, part2) {
                     count = count.max(1 + remain);
                 }
-                visited.remove(&(nx, ny));
+                visited.remove(&next);
             }
         }
         if count == 0 {
@@ -72,13 +82,69 @@ fn dfs(
     }
 }
 
+fn gen_graph(trails: &[Vec<char>], part2: bool) -> HashMap<Coord, Vec<(Coord, usize)>> {
+    let mut graph: HashMap<_, Vec<_>> = HashMap::new();
+    for i in 0..trails.len() {
+        for j in 0..trails[0].len() {
+            if trails[i][j] == '#' {
+                continue;
+            }
+
+            let e = graph.entry((i, j)).or_default();
+            e.extend(neighbors((i, j), trails, part2).into_iter().map(|p| (p, 1)));
+        }
+    }
+    graph
+}
+
+fn prune_graph(graph: &mut HashMap<Coord, Vec<(Coord, usize)>>) {
+    while let Some((&pos, _)) = graph.iter().find(|(_, v)| v.len() == 2) {
+        let neighbors = graph.remove(&pos).unwrap();
+        let (a, ad) = neighbors[0];
+        let (b, bd) = neighbors[1];
+        let ea = graph.entry(a).or_default();
+        if let Some(i) = ea.iter().position(|(p, _)| p == &pos) {
+            ea[i] = (b, ad + bd);
+        }
+        let eb = graph.entry(b).or_default();
+        if let Some(i) = eb.iter().position(|(p, _)| p == &pos) {
+            eb[i] = (a, ad + bd);
+        }
+    }
+}
+
+fn dfs_graph(
+    pos: Coord,
+    end: Coord,
+    graph: &HashMap<Coord, Vec<(Coord, usize)>>,
+    visited: &mut HashSet<Coord>,
+) -> Option<usize> {
+    if pos == end {
+        return Some(0);
+    }
+    let neighbors = graph.get(&pos).unwrap();
+    neighbors
+        .iter()
+        .filter_map(|&(next, d)| {
+            if visited.insert(next) {
+                let d = dfs_graph(next, end, graph, visited).map(|r| r + d);
+                visited.remove(&next);
+                d
+            } else {
+                None
+            }
+        })
+        .max()
+}
+
 fn part1(trails: &[Vec<char>]) -> Result<usize> {
     let _start = Instant::now();
 
-    let result = (0..trails[0].len())
-        .filter_map(|y| dfs((0, y), trails, &mut HashSet::new(), false))
-        .max()
-        .unwrap();
+    let start = (
+        0,
+        (0..trails[0].len()).find(|&y| trails[0][y] == '.').unwrap(),
+    );
+    let result = dfs_grid(start, trails, &mut HashSet::new(), false).unwrap();
 
     writeln!(io::stdout(), "Part 1: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
@@ -88,10 +154,19 @@ fn part1(trails: &[Vec<char>]) -> Result<usize> {
 fn part2(trails: &[Vec<char>]) -> Result<usize> {
     let _start = Instant::now();
 
-    let result = (0..trails[0].len())
-        .filter_map(|y| dfs((0, y), trails, &mut HashSet::new(), true))
-        .max()
-        .unwrap();
+    let start = (
+        0,
+        (0..trails[0].len()).find(|&y| trails[0][y] == '.').unwrap(),
+    );
+    let end = (
+        trails.len() - 1,
+        (0..trails[0].len())
+            .find(|&y| trails[trails.len() - 1][y] == '.')
+            .unwrap(),
+    );
+    let mut graph = gen_graph(trails, true);
+    prune_graph(&mut graph);
+    let result = dfs_graph(start, end, &graph, &mut HashSet::new()).unwrap();
 
     writeln!(io::stdout(), "Part 2: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
@@ -143,6 +218,6 @@ fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let trails = parse_input(input);
     assert_eq!(part1(&trails).unwrap(), 2394);
-    assert_eq!(part2(&trails).unwrap(), 2394);
+    assert_eq!(part2(&trails).unwrap(), 6554);
     assert_eq!(2, 2);
 }
