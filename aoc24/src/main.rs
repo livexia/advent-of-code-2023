@@ -1,5 +1,4 @@
-use nalgebra::{Matrix2, Vector2, Vector3};
-use std::collections::HashSet;
+use nalgebra::{Vector2, Vector3};
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::str::FromStr;
@@ -11,8 +10,6 @@ macro_rules! err {
 }
 
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
-
-type Coord = (isize, isize, isize);
 
 #[derive(Debug, Clone)]
 struct Hailstone {
@@ -98,6 +95,29 @@ fn part2(stones: &[Hailstone]) -> Result<usize> {
 
     let mut count = 0;
 
+    // rock (x, y, z) (vx, vy, vz)
+    //      6 unknown
+    // all stones have a t that:
+    //      stone: (x1, y1, z1) (vx1, vy1, vz1)
+    //      every time stone and rock smashed introudce a time t1
+    //          6 + 1 unkonwn
+    //      x + vx * t1 = x1 + vx1 * t1
+    //      y + vy * t1 = y1 + vy1 * t1
+    //      z + vz * t1 = z1 + vz1 * t1
+    // 2 formula to solve 1 unknown
+    // the number of unknown should be same as the number of equation
+    // 6 + x = 3 * x
+    // x = 3
+    for (i, s) in stones[..3].iter().enumerate() {
+        let p = s.position;
+        let v = s.velocity;
+        let (x, y, z) = (p[0], p[1], p[2]);
+        let (vx, vy, vz) = (v[0], v[1], v[2]);
+        println!("x+vx*t{i}={}+{}*t{i},", x, vx);
+        println!("y+vy*t{i}={}+{}*t{i},", y, vy);
+        println!("z+vz*t{i}={}+{}*t{i},", z, vz);
+    }
+
     writeln!(io::stdout(), "Part 2: {count}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
     Ok(count)
@@ -133,5 +153,5 @@ fn real_input() {
         part1(&stones, 200000000000000, 400000000000000).unwrap(),
         21785
     );
-    assert_eq!(part2(&stones).unwrap(), 47);
+    assert_eq!(part2(&stones).unwrap(), 554668916217145);
 }
