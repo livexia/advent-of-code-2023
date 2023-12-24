@@ -12,3 +12,6 @@ Cargo.lock
 
 # flamegraph.svg
 **/flamegraph.svg
+
+# z3-trace file
+**/.z3-trace
