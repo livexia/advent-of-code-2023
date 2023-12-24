@@ -915,6 +915,7 @@ https://en.wikipedia.org/wiki/Shoelace_formula
 - `brew install z3` 之后依旧无法正确的找到 z3.h 应该是路径问题，不想排查，换一个 Solver
 - 官方的文档不是很简洁明了，所以参考了社区的实现，最后的运行速度没有想象中的快
     - https://github.com/AxlLind/AdventOfCode2023/blob/main/src/bin/24.rs
+- 第二部分的题目要求 Rock 和输入的石头只会在一定的时间间隔内和输入的石头产生碰撞，而输入石头的位置和速度都是整数，所以最后碰撞的位置也一定是整数，那么求解的时候只需要考虑整数即可
 
 **good_lp**
 
