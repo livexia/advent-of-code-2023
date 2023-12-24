@@ -1,4 +1,3 @@
-use nalgebra::{Vector2, Vector3};
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::str::FromStr;
@@ -11,10 +10,12 @@ macro_rules! err {
 
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 
+type Coord = (f64, f64, f64);
+
 #[derive(Debug, Clone)]
 struct Hailstone {
-    position: Vector3<f64>,
-    velocity: Vector3<f64>,
+    position: Coord,
+    velocity: Coord,
 }
 
 impl FromStr for Hailstone {
@@ -31,8 +32,8 @@ impl FromStr for Hailstone {
                 .map(|n| n.trim().parse().unwrap())
                 .collect::<Vec<f64>>();
             Ok(Hailstone {
-                position: Vector3::new(p[0], p[1], p[2]),
-                velocity: Vector3::new(v[0], v[1], v[2]),
+                position: (p[0], p[1], p[2]),
+                velocity: (v[0], v[1], v[2]),
             })
         } else {
             err!("Unable to parse the hailstone: {s:?}")
@@ -50,11 +51,11 @@ fn parse_input<T: AsRef<str>>(input: T) -> Result<Vec<Hailstone>> {
 }
 
 impl Hailstone {
-    fn interstion_xy(&self, other: &Hailstone) -> Option<Vector2<f64>> {
-        let (x1, x2) = (self.position[0], other.position[0]);
-        let (y1, y2) = (self.position[1], other.position[1]);
-        let (vx1, vx2) = (self.velocity[0], other.velocity[0]);
-        let (vy1, vy2) = (self.velocity[1], other.velocity[1]);
+    fn interstion_xy(&self, other: &Hailstone) -> Option<[f64; 2]> {
+        let (x1, x2) = (self.position.0, other.position.0);
+        let (y1, y2) = (self.position.1, other.position.1);
+        let (vx1, vx2) = (self.velocity.0, other.velocity.0);
+        let (vy1, vy2) = (self.velocity.1, other.velocity.1);
         // x1 + vx1 * t = x2 + vx2 * s
         //     (x1 + vx1 * t - x2) / vx2 = s
         // y1 + vy1 * t = y2 + vy2 * s
@@ -67,7 +68,7 @@ impl Hailstone {
         if t < 0.0 || s < 0.0 || t.is_infinite() || s.is_infinite() {
             return None;
         }
-        Some(Vector2::new(x1 + vx1 * t, y1 + vy1 * t))
+        Some([x1 + vx1 * t, y1 + vy1 * t])
     }
 }
 
@@ -111,8 +112,8 @@ fn part2(stones: &[Hailstone]) -> Result<usize> {
     for (i, s) in stones[..3].iter().enumerate() {
         let p = s.position;
         let v = s.velocity;
-        let (x, y, z) = (p[0], p[1], p[2]);
-        let (vx, vy, vz) = (v[0], v[1], v[2]);
+        let (x, y, z) = p;
+        let (vx, vy, vz) = v;
         println!("x+vx*t{i}={}+{}*t{i},", x, vx);
         println!("y+vy*t{i}={}+{}*t{i},", y, vy);
         println!("z+vz*t{i}={}+{}*t{i},", z, vz);
