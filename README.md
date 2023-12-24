@@ -3,10 +3,26 @@
 - https://adventofcode.com/
 - https://github.com/livexia/advent-of-code-2023
 
+[toc]
+
 ## Rust Hints
 
 - https://github.com/dtolnay/anyhow This library provides `[anyhow::Error](https://docs.rs/anyhow/1.0/anyhow/struct.Error.html)`, a trait object based error type for easy idiomatic error handling in Rust applications.
 - `flat_map(|n| n.parse())` 会忽略 `Err` 保留 `Ok` 中的结果。
+
+## Things to Learn
+
+- Dynamic programming
+- Dijkstra's algorithm
+- Shortest path problem
+- Cycle detection
+    - Floyd's tortoise and hare
+- Shoelace formula
+- Pick’s theorem
+- Purne graph
+    - Edge contraction
+- Longest path problem
+- Linear algebra
 
 ## Day 1
 
@@ -801,3 +817,106 @@ https://en.wikipedia.org/wiki/Shoelace_formula
 
 - visited 不使用 HashSet 而使用 Vec ，运行时间：4s → 1s
     - 直接 dfs 的方法 1200s → 700s
+
+## Day 24
+
+今天的题目不是编程题，更像是数学题，第一部分要求二元一次方程组，第二部分要求九元九次方程组。第一部分因为涉及到的方程组数量较少，所以我手动推导出求解过程，代码中再进行计算。第二部分我则代码打印出方程，寻找到在线求解方程组的网站进行求解，第二部分这样居然进了前一千。**今天的问题主要就是需要计算直线相交的，这和第 22 天计算线段相交的问题实际上是一模一样的。涉及到数学和线性代数，我并不是完全理解，但是没办法，也就是这样了。**
+
+题意分析：
+
+- 所有的石头有一个初始位置，同时有一个速度，按照一定的时间间隔根据速度改变位置
+- 第一部分需要计算两两石头的运行路径相交的次数，只要计算路径的相交，而不是石头产生碰撞，即相交不需要石头同时抵达。
+- 第二部分则要想象一个新的石头，这个石头和所有输入的石头同时以各自的速度前进，而且这个石头会和输入的所有石头碰撞，计算这个石头的初始坐标和。
+
+求解思路
+
+- 令石头的初始位置为 p0 速度为 v ，运行时间为 t ，那么就有石头在 t 时的位置 $p = p0 + v*t$
+- 第一部分判断两两石头路径是否相交，要注意的是相交的位置可能并不是正好处于整数的位置，所以第一部分的计算最好**使用浮点数作为计算类型**
+- 令石头 a 的路径函数为 $pa = pa0 + va * ta$
+- 令石头 b 的路径函数为 $pb = pb0 + vb * tb$
+- 当路径相交时，即 pa = pb，所以就有 $pa0 + va*ta = pb0 + vb * tb$
+- 第一部分只考虑 x 和 y ，所以自然的就存在两条方程
+    - $xa0 + vxa * ta = xb0 + vxb * tb$
+    - $ya0 + vya * ta = yb0 + vyb * tb$
+- 因为 xa0 vxa xb0 vxb ya0 vya yb0 vyb 都是输入已知，那么只有 ta 和 tb 未知，同时有两条方程组，那么就可以通过消元法分别求解 ta 和 tb
+- 如果计算出的 ta 和 tb 小于 0 那么说明石头a 和 b 的路径在他们还没移动前就相交了，不合题意
+- 如果 ta 和 tb 是无穷，说明计算中存在除 0 的情况，那么石头 a 和 b 的路径应该是平行了，也就不可能相交
+    - 根据无穷的 ta 和 tb 计算相交的位置，可以发现位置是在无限远的位置相交，实际上也就是不相交
+- 计算出 ta 和 tb 之后，就可以确定路径相交的位置，判断相交位置是否位于输入给定的范围内即可
+- [[code](https://github.com/livexia/advent-of-code-2023/commit/d1c9163f827d6926ef21c7a06b73f5f96574f69d)]第二部分需要计算当一个石头与所有输入石头都存在某一时刻直接相交，计算这个石头的位置
+- 令这个石头的位置为 p 同时速度为 v
+- 第二部分不仅需要考虑 x 和 y 也要考虑 z
+- 令输入石头的位置和速度为 pn 和 vn ，n为输入的石头数，那么就有以下方程
+    - $p + v*t1 = p1 + v1 * t1$
+    - $p + v*t2 = p2 + v2 * t2$
+    - $p + v*t3 = p3 + v3 * t3$
+    - …
+    - $p + v*tn = pn + vn * tn$
+- 暂时先将 p 和 v 都视为一个变量（不是自然数，而是向量/矩阵）
+- 首先存在 n 条方程，每一条方程引入一个新的未知量 tn
+- 那么总共的未知量个数就是 n + 2
+- 一次方程的数量要和未知量的数量一致才能求解未知量，可是总共只有 n 条方程
+    - **方程并不是一次的，而是二次方程，这会影响结果吗？**
+        - 改变方程的位置可以得到 $p - pn = tn(vn - v)$
+        - p 和 v 实际上都是矩阵，所以在两侧叉乘上 $v - vn$ 得到
+        - $(p-pn) \times (v-vn) = tn(vn -v)\times(v - vn)$
+        - 同时有平行的向量叉乘为0， $(vn -v)\times(v - vn) = 0$ 即有
+        - $(p-pn) \times (v-vn) = 0$
+        - p 和 v 是未知数，同时 $p \times v$ 是每一个方程中可得到的共同部分，于是可以被消去，所以这个方程组虽然看似是二次的，可是实际上最后依旧是线性的
+        - 因为这个原因所以就算不用第三方的求解工具，依旧可以手动推导求解
+    - https://old.reddit.com/r/adventofcode/comments/18pptor/2023_day_24_part_2java_is_there_a_trick_for_this/kepvp8j/
+    - https://old.reddit.com/r/adventofcode/comments/18pnycy/2023_day_24_solutions/kepu26z/
+- 不过因为需要考虑三个方向上的情况，那么实际上一条方程是等同于三个方向上的方程
+- 所以在考虑三个方向上后，p 和 v 实际上是总共 6 个位置了
+- 未知量个数就是 n + 6，方程个数就是 3 * n
+    - 实际上时间 t 可以被消去，当然 v 的三个未知量也可以被消去，不过这就要自己实现消元法了，头疼放弃。
+- 满足未知量个数等于方程个数的最小 n 实际上是 3
+- 所以理论上只需要计算 9 个方程，也就是输入中的 3 个石头就能计算出解，剩余的石头/方程是没有用的
+    - 如果计算出的石头和剩余石头相交情况不满足题意，那么实际上输入是存在问题的，也就是说这样的输入是无法计算出可能的石头满足题意
+- 九元九次方程如果直接用消元法手动推导求解，估计眼睛会看不过来，我用 Rust 生产了 9 条方程，再偷懒直接找了网站计算
+    - [https://quickmath.com/webMathematica3/quickmath/equations/solve/advanced.jsp#c=solve_solveequationsadvanced](https://quickmath.com/webMathematica3/quickmath/equations/solve/advanced.jsp#c=solve_solveequationsadvanced&v1=x%2Ba*t%253D262130794315133%2B57*t%250Ay%2Bb*t%253D305267994111063%2B-252*t%250Az%2Bc*t%253D163273807102793%2B150*t%250Ax%2Ba*q%253D290550702673836%2B-74*q%250Ay%2Bb*q%253D186986670515285%2B19*q%250Az%2Bc*q%253D231769402282435%2B-219*q%250Ax%2Ba*w%253D275698513286341%2B-59*w%250Ay%2Bb*w%253D162656001312879%2B-24*w%250Az%2Bc*w%253D183065006152383%2B-225*w&v2=x%250Ay%250Az%250Aa%250Ab%250Ac%250At%250Aq%250Aw)
+- 得出正确答案后，我尝试从 bard 和 cahtgpt 处取得正确答案，可惜 bard 不够聪明，chatgpt 倒是给出了一份 python 的代码，本地运行也的确计算出了正确答案。
+    
+    ```python
+    from sympy import symbols, solve
+    
+    # 定义符号变量
+    x, y, z, vx, vy, vz, t0, t1, t2 = symbols('x y z vx vy vz t0 t1 t2')
+    
+    # 定义方程组
+    equations = [
+        x + vx * t0 - (262130794315133 + 57 * t0),
+        y + vy * t0 - (305267994111063 - 252 * t0),
+        z + vz * t0 - (163273807102793 + 150 * t0),
+        x + vx * t1 - (290550702673836 - 74 * t1),
+        y + vy * t1 - (186986670515285 + 19 * t1),
+        z + vz * t1 - (231769402282435 - 219 * t1),
+        x + vx * t2 - (275698513286341 - 59 * t2),
+        y + vy * t2 - (162656001312879 - 24 * t2),
+        z + vz * t2 - (183065006152383 - 225 * t2)
+    ]
+    
+    # 解方程组
+    solutions = solve(equations, (x, y, z, vx, vy, vz, t0, t1, t2))
+    
+    # 打印结果
+    print(solutions)
+    # 计算 x + y + z
+    sum(solutions[0][:3])
+    ```
+    
+
+### 使用 Solver 求解方程
+
+**z3 [[code](https://github.com/livexia/advent-of-code-2023/commit/fd68fc663e721ce1f5f13599a481a09857fedb30)]**
+
+- https://docs.rs/z3/latest/z3/
+- https://github.com/Z3Prover/z3/wiki#background
+- `brew install z3` 之后依旧无法正确的找到 z3.h 应该是路径问题，不想排查，换一个 Solver
+- 官方的文档不是很简洁明了，所以参考了社区的实现，最后的运行速度没有想象中的快
+    - https://github.com/AxlLind/AdventOfCode2023/blob/main/src/bin/24.rs
+
+**good_lp**
+
+- https://crates.io/crates/good_lp
+- 方程式存在两个变量相乘的情况，无法求解，back to z3
