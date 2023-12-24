@@ -2,6 +2,10 @@ use std::error::Error;
 use std::io::{self, Read, Write};
 use std::str::FromStr;
 use std::time::Instant;
+use z3::{
+    ast::{Ast, Int},
+    Solver,
+};
 
 #[allow(unused_macros)]
 macro_rules! err {
@@ -91,10 +95,31 @@ fn part1(stones: &[Hailstone], min: isize, max: isize) -> Result<usize> {
     Ok(count)
 }
 
-fn part2(stones: &[Hailstone]) -> Result<usize> {
-    let _start = Instant::now();
+fn solve_with_z3(stones: &[Hailstone]) -> isize {
+    let ctx = z3::Context::new(&z3::Config::new());
+    let solver = Solver::new(&ctx);
 
-    let mut count = 0;
+    let [x, y, z, vx, vy, vz] = ["x", "y", "z", "vx", "vy", "vz"].map(|v| Int::new_const(&ctx, v));
+    let zero = Int::from_i64(&ctx, 0);
+    for (i, s) in stones[..3].iter().enumerate() {
+        let t = Int::new_const(&ctx, format!("t{i}"));
+        let p = s.position;
+        let v = s.velocity;
+        let [x1, y1, z1] = [p.0, p.1, p.2].map(|v| Int::from_i64(&ctx, v as _));
+        let [vx1, vy1, vz1] = [v.0, v.1, v.2].map(|v| Int::from_i64(&ctx, v as _));
+        solver.assert(&t.ge(&zero));
+        solver.assert(&(&x + &vx * &t)._eq(&(x1 + vx1 * &t)));
+        solver.assert(&(&y + &vy * &t)._eq(&(y1 + vy1 * &t)));
+        solver.assert(&(&z + &vz * &t)._eq(&(z1 + vz1 * &t)));
+    }
+    assert_eq!(z3::SatResult::Sat, solver.check());
+    let model = solver.get_model().unwrap();
+    let r = model.eval(&(x + y + z), true).unwrap().as_i64().unwrap();
+    r as isize
+}
+
+fn part2(stones: &[Hailstone]) -> Result<isize> {
+    let _start = Instant::now();
 
     // rock (x, y, z) (vx, vy, vz)
     //      6 unknown
@@ -119,9 +144,11 @@ fn part2(stones: &[Hailstone]) -> Result<usize> {
         println!("z+vz*t{i}={}+{}*t{i},", z, vz);
     }
 
-    writeln!(io::stdout(), "Part 2: {count}")?;
+    let result = solve_with_z3(stones);
+
+    writeln!(io::stdout(), "Part 2: {result}")?;
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
-    Ok(count)
+    Ok(result)
 }
 
 fn main() -> Result<()> {
