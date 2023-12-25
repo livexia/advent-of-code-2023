@@ -952,6 +952,9 @@ https://en.wikipedia.org/wiki/Shoelace_formula
 
 - 将 input.txt 修改为 input.dot
 - 利用 graphviz 的 neato 或者 spdf 生成图的可视化
+    - 可以将图按照集群进行展示
+    - neato https://en.wikipedia.org/wiki/Spring_system
+    - spdf https://en.wikipedia.org/wiki/Force-directed_graph_drawing
 - 根据可视化确定需要删除的边
 - 将边删除，利用代码计算分裂的图节点数的乘积
 - 这个方法太取巧，不是一个适用的方法
