@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::time::Instant;
@@ -27,21 +27,26 @@ fn num_to_name(mut n: usize) -> String {
     s
 }
 
-fn parse_input<T: AsRef<str>>(input: T) -> HashMap<usize, Vec<usize>> {
+fn parse_input<T: AsRef<str>>(input: T) -> HashMap<usize, HashSet<usize>> {
+    let mut edges: HashMap<_, HashSet<_>> = HashMap::new();
     input
         .as_ref()
         .lines()
         .filter(|l| !l.trim().is_empty())
-        .map(|l| {
+        .for_each(|l| {
             if let Some((left, right)) = l.split_once(':') {
                 let left = name_to_num(left);
-                let right = right.split_whitespace().map(name_to_num).collect();
-                (left, right)
+                let right: Vec<_> = right.split_whitespace().map(name_to_num).collect();
+                edges.entry(left).or_default().extend(right.iter());
+                for n in right {
+                    edges.entry(n).or_default().insert(left);
+                }
             } else {
                 panic!("Unable to parse input.")
             }
-        })
-        .collect()
+        });
+
+    edges
 }
 
 fn dfs(
@@ -50,86 +55,63 @@ fn dfs(
     visited: &mut HashSet<usize>,
     exclued: &[(usize, usize)],
 ) -> usize {
-    let mut count = 1;
-    for &next in &edges[&v] {
-        if exclued.contains(&(v, next)) {
-            continue;
-        }
-        if visited.insert(next) {
+    if visited.insert(v) {
+        let mut count = 1;
+        for &next in &edges[&v] {
+            if exclued.contains(&(v, next)) || exclued.contains(&(next, v)) {
+                continue;
+            }
             count += dfs(next, edges, visited, exclued)
         }
+        count
+    } else {
+        0
     }
-    count
 }
 
-fn connected_even_exclued(
-    v: usize,
-    end: usize,
+fn edges_freq(
+    start: usize,
     edges: &HashMap<usize, HashSet<usize>>,
-    visited: &mut HashSet<usize>,
-    exclued: &[(usize, usize)],
-) -> bool {
-    for &next in &edges[&v] {
-        if exclued.contains(&(v, next)) {
-            continue;
-        }
-        if next == end {
-            return true;
-        }
-        if visited.insert(next) && connected_even_exclued(next, end, edges, visited, exclued) {
-            return true;
+    freq: &mut HashMap<(usize, usize), usize>,
+) {
+    let mut queue = VecDeque::new();
+    queue.push_back(start);
+
+    let mut visited = HashSet::new();
+    visited.insert(start);
+    while let Some(v) = queue.pop_front() {
+        for &n in &edges[&v] {
+            if visited.insert(n) {
+                let e = freq.entry((v.min(n), n.max(v))).or_default();
+                *e += 1;
+                queue.push_back(n);
+            }
         }
     }
-    false
 }
 
-fn part1(connected: &HashMap<usize, Vec<usize>>) -> Result<usize> {
+fn part1(edges: &HashMap<usize, HashSet<usize>>) -> Result<usize> {
     let _start = Instant::now();
 
-    let mut edges: HashMap<_, HashSet<_>> = HashMap::new();
-
-    for (k, v) in connected {
-        let e = edges.entry(*k).or_default();
-        e.extend(v.iter());
-        for &next in v {
-            let e1 = edges.entry(next).or_default();
-            e1.insert(*k);
-        }
+    let mut freq = HashMap::new();
+    for &v in edges.keys() {
+        edges_freq(v, edges, &mut freq);
     }
 
-    let total_edges: Vec<_> = edges
-        .iter()
-        .flat_map(|(k, v)| v.iter().map(|v0| (*k, *v0)))
-        .collect();
-
-    let l = total_edges.len();
-    for (k, v) in &edges {
-        println!("{} {k} -> {v:?}", num_to_name(*k));
-    }
-
-    println!("{}", l * (l - 1) * (l - 2));
-
-    dbg!(&edges[&name_to_num("ffj")]);
-    // dbg!(&edges[&name_to_num("xjb")]);
-    dbg!(&edges[&name_to_num("xhg")]);
+    let mut edges_sort_by_freq: Vec<_> = freq.iter().collect();
+    edges_sort_by_freq.sort_by_key(|(_, v)| *v);
+    edges_sort_by_freq.reverse();
 
     let mut result = 0;
-    let mut visited = HashSet::new();
-    let mut group = vec![];
-    for &v in edges.keys() {
-        if visited.insert(v) {
-            group.push(dfs(
-                v,
-                &edges,
-                &mut visited,
-                &[
-                    (name_to_num("xjb"), name_to_num("vgs")),
-                    (name_to_num("ffj"), name_to_num("lkm")),
-                    (name_to_num("xhg"), name_to_num("ljl")),
-                ],
-            ));
-            if group.len() == 2 {
-                result = group[0] * group[1];
+
+    'searching: for (i, (&e1, _)) in edges_sort_by_freq.iter().enumerate() {
+        for (j, (&e2, _)) in edges_sort_by_freq.iter().enumerate().skip(i + 1) {
+            for (&e3, _) in edges_sort_by_freq.iter().skip(j + 1) {
+                let size = dfs(e1.0, edges, &mut HashSet::new(), &[e1, e2, e3]);
+                if size != edges.len() {
+                    result = (edges.len() - size) * size;
+                    break 'searching;
+                }
             }
         }
     }
@@ -143,9 +125,9 @@ fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
-    let connected = parse_input(input);
+    let edges = parse_input(input);
 
-    part1(&connected)?;
+    part1(&edges)?;
     // part2()?;
     Ok(())
 }
@@ -165,15 +147,15 @@ nvd: lhk
 lsr: lhk
 rzs: qnr cmg lsr rsh
 frs: qnr lhk lsr";
-    let connected = parse_input(input);
+    let edges = parse_input(input);
 
-    assert_eq!(part1(&connected).unwrap(), 54);
+    assert_eq!(part1(&edges).unwrap(), 54);
 }
 
 #[test]
 fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
-    let connected = parse_input(input);
+    let edges = parse_input(input);
 
-    assert_eq!(part1(&connected).unwrap(), 54);
+    assert_eq!(part1(&edges).unwrap(), 506202);
 }
